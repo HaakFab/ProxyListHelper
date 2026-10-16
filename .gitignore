@@ -20,6 +20,7 @@ upscaled_cache/
 mpc_cache/
 weights/
 backs/
+scratch/
 .cache/
 *.pdf
 card_totals_summary.csv

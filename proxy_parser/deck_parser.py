@@ -24,7 +24,8 @@ class CardEntry:
         lang_suffix = f"_{self.lang.lower()}" if self.lang and self.lang.lower() != "en" else ""
         if self.set and self.cn:
             return f"{self.set}_{self.cn}{lang_suffix}".lower()
-        return f"{re.sub(r'[^a-zA-Z0-9_\-]', '_', self.name.lower())}{lang_suffix}"
+        safe_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', self.name.lower())
+        return f"{safe_name}{lang_suffix}"
 
     @property
     def is_custom_double_sided(self) -> bool:

@@ -8,6 +8,8 @@ import urllib.parse
 import urllib.error
 from typing import Dict, List, Optional, Tuple
 
+import unicodedata
+
 SCRYFALL_HEADERS = {
     "User-Agent": "ProxyListHelper/1.0 (https://github.com/HaakFab/ProxyListHelper)",
     "Accept": "application/json",
@@ -16,28 +18,56 @@ SCRYFALL_HEADERS = {
 # In-memory session cache to avoid redundant hits
 _CACHE: Dict[str, dict] = {}
 
+def get_card_image_url(card_data: Optional[dict]) -> Optional[str]:
+    """Returns high quality image URL for a card or its front face."""
+    if not card_data:
+        return None
+    if "image_uris" in card_data:
+        return card_data["image_uris"].get("normal") or card_data["image_uris"].get("small") or card_data["image_uris"].get("large")
+    if "card_faces" in card_data and len(card_data["card_faces"]) > 0:
+        face = card_data["card_faces"][0]
+        if "image_uris" in face:
+            return face["image_uris"].get("normal") or face["image_uris"].get("small")
+    return None
+
 def preload_cards_batch(cards: List[dict]):
     """
     Batches Scryfall card lookups using the /cards/collection endpoint (up to 75 cards per batch).
     Populates _CACHE so subsequent lookups are instant.
+    Preserves exact collector number casing to support The List (PLST) and variants.
     """
     identifiers = []
     seen = set()
     for c in cards:
         s = (c.get("set") or "").lower().strip()
-        cn = str(c.get("cn") or "").lower().strip()
+        cn = str(c.get("cn") or "").lstrip("#").strip()
         name = (c.get("name") or "").strip()
+
+        # Handle Alchemy 'A-' prefixes if present
+        clean_name = re.sub(r"^A-", "", name).strip()
+        clean_cn = re.sub(r"^[Aa]-", "", cn).strip()
+
         if s and cn:
             key = (s, cn)
             if key not in seen:
                 seen.add(key)
                 identifiers.append({"set": s, "collector_number": cn})
+            if cn != cn.upper():
+                upper_key = (s, cn.upper())
+                if upper_key not in seen:
+                    seen.add(upper_key)
+                    identifiers.append({"set": s, "collector_number": cn.upper()})
+            if clean_cn != cn:
+                clean_key = (s, clean_cn)
+                if clean_key not in seen:
+                    seen.add(clean_key)
+                    identifiers.append({"set": s, "collector_number": clean_cn})
         elif name:
-            clean_name = name.split(" // ")[0].strip()
-            key = ("name", clean_name.lower())
+            clean_split = clean_name.split(" // ")[0].split(" / ")[0].strip()
+            key = ("name", clean_split.lower())
             if key not in seen:
                 seen.add(key)
-                identifiers.append({"name": clean_name})
+                identifiers.append({"name": clean_split})
 
     if not identifiers:
         return
@@ -56,15 +86,17 @@ def preload_cards_batch(cards: List[dict]):
                 data = json.loads(resp.read().decode("utf-8"))
                 for card in data.get("data", []):
                     c_set = card.get("set", "").lower()
-                    c_cn = str(card.get("collector_number", "")).lower()
+                    c_cn = str(card.get("collector_number", "")).strip()
                     if c_set and c_cn:
                         _CACHE[f"https://api.scryfall.com/cards/{c_set}/{c_cn}"] = card
+                        _CACHE[f"https://api.scryfall.com/cards/{c_set}/{c_cn.upper()}"] = card
+                        _CACHE[f"https://api.scryfall.com/cards/{c_set}/{c_cn.lower()}"] = card
                     c_name = card.get("name", "").split(" // ")[0].strip()
                     if c_name:
                         _CACHE[f"https://api.scryfall.com/cards/named?exact={urllib.parse.quote(c_name)}"] = card
                 for nf in data.get("not_found", []):
                     nf_set = nf.get("set", "").lower()
-                    nf_cn = str(nf.get("collector_number", "")).lower()
+                    nf_cn = str(nf.get("collector_number", "")).strip()
                     if nf_set and nf_cn:
                         _CACHE[f"https://api.scryfall.com/cards/{nf_set}/{nf_cn}"] = None
                     if "name" in nf:
@@ -93,18 +125,65 @@ def _scryfall_get(url: str) -> Optional[dict]:
         return None
 
 def get_card_by_set_cn(set_code: str, collector_number: str) -> Optional[dict]:
-    """Look up a card by set code and collector number."""
+    """Look up a card by set code and collector number with case and zero fallbacks."""
     if not set_code or not collector_number:
         return None
-    url = f"https://api.scryfall.com/cards/{set_code.lower()}/{collector_number.lower()}"
-    return _scryfall_get(url)
+    s = set_code.lower().strip()
+    cn = str(collector_number).lstrip("#").strip()
+
+    # 1. Try exact collector number
+    data = _scryfall_get(f"https://api.scryfall.com/cards/{s}/{cn}")
+    if data:
+        return data
+
+    # 2. Try uppercase collector number (crucial for PLST e.g. MH3-215, SLD variants)
+    if cn != cn.upper():
+        data = _scryfall_get(f"https://api.scryfall.com/cards/{s}/{cn.upper()}")
+        if data:
+            return data
+
+    # 3. Try stripped leading zeros (e.g. 0401 -> 401)
+    stripped_zeros = cn.lstrip("0")
+    if stripped_zeros and stripped_zeros != cn:
+        data = _scryfall_get(f"https://api.scryfall.com/cards/{s}/{stripped_zeros}")
+        if data:
+            return data
+
+    # 4. Try stripping Arena Alchemy prefix 'A-' if present
+    if cn.startswith("A-") or cn.startswith("a-"):
+        data = _scryfall_get(f"https://api.scryfall.com/cards/{s}/{cn[2:].strip()}")
+        if data:
+            return data
+
+    return None
 
 def get_card_by_name(card_name: str) -> Optional[dict]:
-    """Look up a card by exact name."""
-    clean_name = card_name.split(" // ")[0].strip()
+    """Look up a card by name with Unicode punctuation and diacritic fallbacks."""
+    if not card_name:
+        return None
+    # Normalize curly quotes and dashes
+    clean_name = card_name.replace("’", "'").replace("‘", "'").replace("—", "-").replace("–", "-")
+    # Normalize split card slashes
+    clean_name = clean_name.replace(" / ", " // ")
+    clean_name = clean_name.split(" // ")[0].strip()
+
     encoded = urllib.parse.quote(clean_name)
     url = f"https://api.scryfall.com/cards/named?exact={encoded}"
-    return _scryfall_get(url)
+    data = _scryfall_get(url)
+    if data:
+        return data
+
+    # Fallback with diacritics removed (e.g. Lim-Dûl -> Lim-Dul)
+    decomposed = unicodedata.normalize('NFKD', clean_name)
+    stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
+    if stripped != clean_name:
+        data_stripped = _scryfall_get(f"https://api.scryfall.com/cards/named?exact={urllib.parse.quote(stripped)}")
+        if data_stripped:
+            return data_stripped
+
+    # Fallback to fuzzy search
+    url_fuzzy = f"https://api.scryfall.com/cards/named?fuzzy={encoded}"
+    return _scryfall_get(url_fuzzy)
 
 def is_foil_only(card_data: dict) -> bool:
     """Checks if a card is only available in foil or etched."""

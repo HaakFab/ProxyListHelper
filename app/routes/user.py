@@ -329,8 +329,20 @@ def success_page(request: Request, order_id: str, lang: str = "en", db: Session 
         "price_per_list_cents": order.price_per_list_cents,
         "order_fee_cents": order.order_fee_cents,
     }
+
+    deck_changes = []
+    for d in order.decks:
+        try:
+            diag = json.loads(d.diagnostics_json or "[]")
+            yellows = [i for i in diag if i.get("status") == "YELLOW" or i.get("can_autofix") or i.get("category") in ("FOIL_REPLACED", "STAMP_REPLACED", "ALCHEMY_REPLACED", "DIGITAL_REPLACED")]
+            if yellows:
+                deck_changes.append({"deck": d, "items": yellows})
+        except Exception:
+            pass
+
     return templates.TemplateResponse(request, "success.html", {
         "order": order,
+        "deck_changes": deck_changes,
         "lang": lang,
         "t": lambda key, *args: t(key, lang, *args),
         "rates": rates,

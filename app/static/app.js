@@ -57,8 +57,12 @@ function handleMoxfieldInput(deckIndex) {
   .then(res => res.json())
   .then(data => {
     if (data.success) {
-      if (titleInput && (!titleInput.value || titleInput.value.startsWith('Deck '))) {
-        titleInput.value = data.name;
+      if (titleInput) {
+        const isUserEdited = titleInput.dataset.userEdited === 'true';
+        const hasCustomVal = titleInput.value && titleInput.value.trim() && !titleInput.value.startsWith('Deck ');
+        if (!isUserEdited && !hasCustomVal) {
+          titleInput.value = data.name;
+        }
       }
       if (statusBadge) {
         statusBadge.className = 'badge badge-green';
@@ -123,7 +127,7 @@ function addDeckForm() {
 
     <div class="form-group">
       <label class="form-label" for="deck_name_${idx}">Deck Name</label>
-      <input type="text" class="form-input" id="deck_name_${idx}" name="deck_name_${idx}" placeholder="e.g. Commander, cEDH, Standard..." value="Deck ${idx + 1}">
+      <input type="text" class="form-input" id="deck_name_${idx}" name="deck_name_${idx}" placeholder="e.g. Commander, cEDH, Standard...">
     </div>
 
     <input type="hidden" name="source_type_${idx}" value="url">
@@ -219,69 +223,93 @@ function removeDeckForm(idx) {
   }
 }
 
+// Track user manual edits on deck names to prevent auto-overwrite
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.id && e.target.id.startsWith('deck_name_')) {
+    e.target.dataset.userEdited = "true";
+  }
+});
+
 // Form Submission & Animated Progress Modal
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('submit-form');
-  if (!form) return;
-
-  form.addEventListener('submit', (e) => {
-    // 1. Validate submitter name
-    const nameInput = document.getElementById('submitter_name');
-    if (!nameInput || !nameInput.value.trim()) {
-      e.preventDefault();
-      if (nameInput) {
-        nameInput.focus();
-        nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (form) {
+    // Prevent accidental submission when pressing Enter in text inputs / URL inputs
+    form.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const tag = (e.target.tagName || '').toLowerCase();
+        if (tag !== 'textarea') {
+          e.preventDefault();
+          if (e.target.id && e.target.id.startsWith('moxfield_url_')) {
+            e.target.blur();
+          }
+          return false;
+        }
       }
-      alert('Please enter your name.');
-      return;
-    }
+    });
 
-    // 2. Validate that at least one deck has input
-    let hasAnyDeckContent = false;
-    const count = parseInt(document.getElementById('deck_count')?.value || '1', 10);
-    for (let i = 0; i < count; i++) {
-      const card = document.getElementById(`deck-card-${i}`);
-      if (!card) continue;
-      const urlInput = document.getElementById(`moxfield_url_${i}`);
-      const textInput = document.getElementById(`raw_text_${i}`);
-      const sourceInput = card.querySelector(`input[name="source_type_${i}"]`);
-      const srcType = sourceInput ? sourceInput.value : 'url';
-
-      if (srcType === 'url' && urlInput && urlInput.value.trim()) {
-        hasAnyDeckContent = true;
-        break;
-      } else if (srcType === 'text' && textInput && textInput.value.trim()) {
-        hasAnyDeckContent = true;
-        break;
-      } else if ((urlInput && urlInput.value.trim()) || (textInput && textInput.value.trim())) {
-        hasAnyDeckContent = true;
-        break;
+    form.addEventListener('submit', (e) => {
+      // 1. Validate submitter name
+      const nameInput = document.getElementById('submitter_name');
+      if (!nameInput || !nameInput.value.trim()) {
+        e.preventDefault();
+        if (nameInput) {
+          nameInput.focus();
+          nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        alert('Please enter your name.');
+        return;
       }
-    }
 
-    if (!hasAnyDeckContent) {
-      e.preventDefault();
-      alert('Please enter at least one Moxfield deck URL or paste deck text before converting.');
-      return;
-    }
+      // 2. Validate that at least one deck has input
+      let hasAnyDeckContent = false;
+      const count = parseInt(document.getElementById('deck_count')?.value || '1', 10);
+      for (let i = 0; i < count; i++) {
+        const card = document.getElementById(`deck-card-${i}`);
+        if (!card) continue;
+        const urlInput = document.getElementById(`moxfield_url_${i}`);
+        const textInput = document.getElementById(`raw_text_${i}`);
+        const sourceInput = card.querySelector(`input[name="source_type_${i}"]`);
+        const srcType = sourceInput ? sourceInput.value : 'url';
 
-    // 3. Show the Processing Progress Modal
-    const modal = document.getElementById('processing-modal');
-    const submitBtn = document.getElementById('submit-btn');
-    if (modal) {
-      modal.style.display = 'flex';
-      modal.setAttribute('aria-hidden', 'false');
-    }
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.style.opacity = '0.7';
-      submitBtn.textContent = '⏳ Processing...';
-    }
+        if (srcType === 'url' && urlInput && urlInput.value.trim()) {
+          hasAnyDeckContent = true;
+          break;
+        } else if (srcType === 'text' && textInput && textInput.value.trim()) {
+          hasAnyDeckContent = true;
+          break;
+        } else if ((urlInput && urlInput.value.trim()) || (textInput && textInput.value.trim())) {
+          hasAnyDeckContent = true;
+          break;
+        }
+      }
 
-    // 4. Animate progress bar & steps
-    startProgressAnimation();
-  });
+      if (!hasAnyDeckContent) {
+        e.preventDefault();
+        alert('Please enter at least one Moxfield deck URL or paste deck text before converting.');
+        return;
+      }
+
+      // 3. Show the Processing Progress Modal
+      const modal = document.getElementById('processing-modal');
+      const submitBtn = document.getElementById('submit-btn');
+      if (modal) {
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+      }
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.7';
+        submitBtn.textContent = '⏳ Processing...';
+      }
+
+      // 4. Animate progress bar & steps
+      startProgressAnimation();
+    });
+  }
+
+  // Initialize interactive card hover tooltip
+  initCardHoverTooltip();
 });
 
 function startProgressAnimation() {
@@ -320,4 +348,103 @@ function startProgressAnimation() {
     }, item.at);
   });
 }
+
+function initCardHoverTooltip() {
+  const tooltip = document.getElementById('card-hover-tooltip');
+  if (!tooltip) return;
+
+  const tooltipReason = document.getElementById('tooltip-reason');
+  const v1Img = document.getElementById('tooltip-v1-img');
+  const v1Placeholder = document.getElementById('tooltip-v1-placeholder');
+  const v1Label = document.getElementById('tooltip-v1-label');
+  const v2Img = document.getElementById('tooltip-v2-img');
+  const v2Placeholder = document.getElementById('tooltip-v2-placeholder');
+  const v2Label = document.getElementById('tooltip-v2-label');
+
+  let activeEl = null;
+
+  function positionTooltip(e) {
+    const pad = 16;
+    const tooltipWidth = tooltip.offsetWidth || 340;
+    const tooltipHeight = tooltip.offsetHeight || 300;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let x = e.clientX + pad;
+    let y = e.clientY - Math.floor(tooltipHeight / 2);
+
+    if (x + tooltipWidth > viewportWidth - pad) {
+      x = e.clientX - tooltipWidth - pad;
+    }
+    if (x < pad) x = pad;
+
+    if (y + tooltipHeight > viewportHeight - pad) {
+      y = viewportHeight - tooltipHeight - pad;
+    }
+    if (y < pad) y = pad;
+
+    tooltip.style.left = `${x}px`;
+    tooltip.style.top = `${y}px`;
+  }
+
+  document.addEventListener('mouseover', (e) => {
+    const row = e.target.closest('.has-card-hover');
+    if (!row) return;
+    activeEl = row;
+
+    const v1 = row.dataset.v1Img || '';
+    const v2 = row.dataset.v2Img || '';
+    const v1Text = row.dataset.v1Label || '';
+    const v2Text = row.dataset.v2Label || '';
+    const reason = row.dataset.reason || '';
+
+    if (tooltipReason) {
+      tooltipReason.textContent = reason;
+      tooltipReason.style.display = reason ? 'block' : 'none';
+    }
+
+    if (v1Label) v1Label.textContent = v1Text;
+    if (v2Label) v2Label.textContent = v2Text;
+
+    if (v1Img) {
+      if (v1) {
+        v1Img.src = v1;
+        v1Img.style.display = 'block';
+        if (v1Placeholder) v1Placeholder.style.display = 'none';
+      } else {
+        v1Img.style.display = 'none';
+        if (v1Placeholder) v1Placeholder.style.display = 'block';
+      }
+    }
+
+    if (v2Img) {
+      if (v2) {
+        v2Img.src = v2;
+        v2Img.style.display = 'block';
+        if (v2Placeholder) v2Placeholder.style.display = 'none';
+      } else {
+        v2Img.style.display = 'none';
+        if (v2Placeholder) v2Placeholder.style.display = 'block';
+      }
+    }
+
+    tooltip.style.display = 'block';
+    positionTooltip(e);
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (activeEl && tooltip.style.display !== 'none') {
+      positionTooltip(e);
+    }
+  });
+
+  document.addEventListener('mouseout', (e) => {
+    const row = e.target.closest('.has-card-hover');
+    if (row && (!e.relatedTarget || !row.contains(e.relatedTarget))) {
+      activeEl = null;
+      tooltip.style.display = 'none';
+    }
+  });
+}
+
 

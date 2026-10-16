@@ -128,7 +128,19 @@ def delete_order(
     if order:
         db.delete(order)
         db.commit()
-    return RedirectResponse(url=f"/admin?lang={lang}", status_code=303)
+@router.post("/cycle/new")
+def start_new_order_cycle(
+    admin_session: Optional[str] = Cookie(None),
+    lang: str = Form("en"),
+    db: Session = Depends(get_db)
+):
+    if not is_admin_authenticated(admin_session):
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    db.query(Deck).delete()
+    db.query(Order).delete()
+    db.commit()
+    return RedirectResponse(url=f"/admin?lang={lang}&cycle_reset=1", status_code=303)
 
 @router.get("/export/csv")
 def export_summary_csv(

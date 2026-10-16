@@ -1,9 +1,10 @@
-"""Deck converter that applies pre-run transformations and traffic-light validation."""
+import re
 from typing import Dict, List, Optional, Tuple
 from .scryfall import (
     preload_cards_batch,
     get_card_by_set_cn,
     get_card_by_name,
+    get_card_image_url,
     is_foil_only,
     has_planeswalker_stamp,
     find_clean_paper_fallback,
@@ -26,6 +27,10 @@ class CardAuditItem:
         suggested_set: str = "",
         suggested_cn: str = "",
         localized_scan_available: bool = True,
+        original_image_url: Optional[str] = None,
+        fixed_image_url: Optional[str] = None,
+        original_version_label: str = "",
+        fixed_version_label: str = "",
         back_name: Optional[str] = None,
         back_set: Optional[str] = None,
         back_cn: Optional[str] = None,
@@ -43,6 +48,10 @@ class CardAuditItem:
         self.suggested_set = suggested_set
         self.suggested_cn = suggested_cn
         self.localized_scan_available = localized_scan_available
+        self.original_image_url = original_image_url
+        self.fixed_image_url = fixed_image_url
+        self.original_version_label = original_version_label
+        self.fixed_version_label = fixed_version_label
         self.back_name = back_name
         self.back_set = back_set
         self.back_cn = back_cn
@@ -62,6 +71,10 @@ class CardAuditItem:
             "suggested_set": self.suggested_set,
             "suggested_cn": self.suggested_cn,
             "localized_scan_available": self.localized_scan_available,
+            "original_image_url": self.original_image_url,
+            "fixed_image_url": self.fixed_image_url,
+            "original_version_label": self.original_version_label,
+            "fixed_version_label": self.fixed_version_label,
             "back_name": self.back_name,
             "back_set": self.back_set,
             "back_cn": self.back_cn,
@@ -109,26 +122,67 @@ def process_deck_cards(
         qty = item["qty"]
         name = item["name"]
         set_code = (item.get("set") or "").lower()
-        cn = str(item.get("cn") or "").strip()
+        cn = str(item.get("cn") or "").lstrip("#").strip()
         back_name = item.get("back_name")
         back_set = (item.get("back_set") or "").lower() if item.get("back_set") else None
         back_cn = item.get("back_cn")
         
         orig_line = format_card_line(qty, name, set_code, cn, back_name, back_set, back_cn)
-        
-        # 1. Scryfall lookup
-        card_data = None
-        if set_code and cn:
-            card_data = get_card_by_set_cn(set_code, cn)
+        card_flagged = False
+
+        # 0. Check for Arena Alchemy Rebalanced Card (e.g. A-Teferi, Time Raveler, A-Unholy Heat)
+        if name.startswith("A-") or name.startswith("a-"):
+            raw_name = name
+            clean_name = name[2:].strip()
+            clean_cn = re.sub(r"^[Aa]-", "", cn).strip()
             
+            paper_card = None
+            if set_code and clean_cn:
+                paper_card = get_card_by_set_cn(set_code, clean_cn)
+            if not paper_card:
+                paper_card = get_card_by_name(clean_name)
+
+            if paper_card:
+                name = clean_name
+                orig_set, orig_cn = set_code, cn
+                set_code = paper_card.get("set", "").lower()
+                cn = paper_card.get("collector_number", "").strip()
+                fixed = format_card_line(qty, name, set_code, cn, back_name, back_set, back_cn)
+                audit_item = CardAuditItem(
+                    qty=qty, name=name, set_code=orig_set or set_code, cn=orig_cn or cn,
+                    status="YELLOW", category="ALCHEMY_REPLACED",
+                    message=f"Arena Alchemy rebalanced card '{raw_name}' converted to official paper printing ({set_code.upper()} #{cn}).",
+                    original_line=orig_line, fixed_line=fixed, can_autofix=True,
+                    suggested_set=set_code, suggested_cn=cn,
+                    original_image_url=None,
+                    fixed_image_url=get_card_image_url(paper_card),
+                    original_version_label=f"{raw_name} ({orig_set.upper() if orig_set else 'ARENA'} #{orig_cn})",
+                    fixed_version_label=f"{name} ({set_code.upper()} #{cn})",
+                    back_name=back_name, back_set=back_set, back_cn=back_cn
+                )
+                audit_items.append(audit_item)
+                card_flagged = True
+                if overall_status != "RED":
+                    overall_status = "YELLOW"
+                card_data = paper_card
+            else:
+                card_data = None
+        else:
+            card_data = None
+        
+        # 1. Scryfall lookup if not already resolved by Alchemy fallback
         if not card_data:
-            # Fallback by name
-            card_data = get_card_by_name(name)
-            if card_data:
-                # Update set & cn to what Scryfall found
-                set_code = card_data.get("set", "").lower()
-                cn = card_data.get("collector_number", "").strip()
+            if set_code and cn:
+                card_data = get_card_by_set_cn(set_code, cn)
                 
+            if not card_data:
+                # Fallback by name
+                card_data = get_card_by_name(name)
+                if card_data:
+                    # Update set & cn to what Scryfall found
+                    set_code = card_data.get("set", "").lower()
+                    cn = card_data.get("collector_number", "").strip()
+                    
         if not card_data:
             # 🔴 Card not found on Scryfall
             audit_item = CardAuditItem(
@@ -138,11 +192,14 @@ def process_deck_cards(
                 original_line=orig_line,
                 fixed_line=orig_line,
                 can_autofix=False,
+                original_version_label=f"{name} ({set_code.upper() if set_code else 'No Set'} #{cn or '?'})",
                 back_name=back_name, back_set=back_set, back_cn=back_cn
             )
             audit_items.append(audit_item)
             overall_status = "RED"
             continue
+
+        initial_img = get_card_image_url(card_data)
             
         # 2. Check Digital-only
         if card_data.get("digital") is True:
@@ -157,18 +214,27 @@ def process_deck_cards(
                     message=f"Digital printing replaced with paper printing ({fb_set.upper()} #{fb_cn}).",
                     original_line=orig_line, fixed_line=fixed, can_autofix=True,
                     suggested_set=fb_set, suggested_cn=fb_cn,
+                    original_image_url=initial_img,
+                    fixed_image_url=get_card_image_url(paper_fallback),
+                    original_version_label=f"Digital ({set_code.upper()} #{cn})",
+                    fixed_version_label=f"Paper ({fb_set.upper()} #{fb_cn})",
                     back_name=back_name, back_set=back_set, back_cn=back_cn
                 )
                 audit_items.append(audit_item)
+                card_flagged = True
                 if overall_status != "RED":
                     overall_status = "YELLOW"
                 set_code, cn = fb_set, fb_cn
+                card_data = paper_fallback
+                initial_img = get_card_image_url(paper_fallback)
             else:
                 audit_item = CardAuditItem(
                     qty=qty, name=name, set_code=set_code, cn=cn,
                     status="RED", category="DIGITAL_ONLY",
                     message=f"'{name}' is digital-only and has no paper release.",
                     original_line=orig_line, fixed_line=orig_line, can_autofix=False,
+                    original_image_url=initial_img,
+                    original_version_label=f"Digital ({set_code.upper()} #{cn})",
                     back_name=back_name, back_set=back_set, back_cn=back_cn
                 )
                 audit_items.append(audit_item)
@@ -188,13 +254,19 @@ def process_deck_cards(
                     message=f"Planeswalker-stamped promo replaced with clean printing ({fb_set.upper()} #{fb_cn}).",
                     original_line=orig_line, fixed_line=fixed, can_autofix=True,
                     suggested_set=fb_set, suggested_cn=fb_cn,
+                    original_image_url=initial_img,
+                    fixed_image_url=get_card_image_url(clean_fallback),
+                    original_version_label=f"Promo Stamped ({set_code.upper()} #{cn})",
+                    fixed_version_label=f"Clean Paper ({fb_set.upper()} #{fb_cn})",
                     back_name=back_name, back_set=back_set, back_cn=back_cn
                 )
                 audit_items.append(audit_item)
+                card_flagged = True
                 if overall_status != "RED":
                     overall_status = "YELLOW"
                 set_code, cn = fb_set, fb_cn
                 card_data = clean_fallback
+                initial_img = get_card_image_url(clean_fallback)
 
         # 4. Check Foil-only
         if convert_foils and is_foil_only(card_data):
@@ -209,13 +281,19 @@ def process_deck_cards(
                     message=f"Foil-only printing replaced with non-foil paper version ({fb_set.upper()} #{fb_cn}).",
                     original_line=orig_line, fixed_line=fixed, can_autofix=True,
                     suggested_set=fb_set, suggested_cn=fb_cn,
+                    original_image_url=initial_img,
+                    fixed_image_url=get_card_image_url(nonfoil_fallback),
+                    original_version_label=f"Foil-Only ({set_code.upper()} #{cn})",
+                    fixed_version_label=f"Non-Foil Paper ({fb_set.upper()} #{fb_cn})",
                     back_name=back_name, back_set=back_set, back_cn=back_cn
                 )
                 audit_items.append(audit_item)
+                card_flagged = True
                 if overall_status != "RED":
                     overall_status = "YELLOW"
                 set_code, cn = fb_set, fb_cn
                 card_data = nonfoil_fallback
+                initial_img = get_card_image_url(nonfoil_fallback)
                 
         # 5. Check Language Scan Availability
         has_localized = True
@@ -226,13 +304,17 @@ def process_deck_cards(
         converted_lines.append(final_line)
         
         # If no issues were flagged above, card is 🟢 GREEN
-        if not any(a.name == name and a.set_code == set_code and a.cn == cn for a in audit_items):
+        if not card_flagged:
             audit_item = CardAuditItem(
                 qty=qty, name=name, set_code=set_code, cn=cn,
                 status="GREEN", category="CLEAN",
                 message="Card verified on Scryfall.",
                 original_line=orig_line, fixed_line=final_line, can_autofix=False,
                 localized_scan_available=has_localized,
+                original_image_url=initial_img,
+                fixed_image_url=initial_img,
+                original_version_label=f"{name} ({set_code.upper()} #{cn})",
+                fixed_version_label=f"{name} ({set_code.upper()} #{cn})",
                 back_name=back_name, back_set=back_set, back_cn=back_cn
             )
             audit_items.append(audit_item)

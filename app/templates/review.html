@@ -72,17 +72,30 @@
       </div>
     {% endif %}
 
-    <!-- 🟡 AUTO-FIXED CARDS -->
+    <!-- 🟡 AUTO-FIXED CARDS WITH MOUSEOVER COMPARISON -->
     {% if p.yellow_items %}
-      <div style="margin-bottom: 16px;">
-        <details style="font-size: 0.86rem; color: var(--text-muted);">
-          <summary style="cursor: pointer; font-weight: 600; color: #fbbf24; margin-bottom: 8px;">
-            🟡 View {{ p.yellow_items|length }} Applied Auto-Fixes (Foil &amp; Promo Replacements)
+      <div style="margin-bottom: 20px;">
+        <details open style="font-size: 0.86rem; color: var(--text-muted);">
+          <summary style="cursor: pointer; font-weight: 700; color: #fbbf24; margin-bottom: 8px;">
+            Applied Auto-Fixes ({{ p.yellow_items|length }} cards converted &bull; hover to preview)
           </summary>
-          <div style="background: rgba(0, 0, 0, 0.25); border-radius: var(--radius-sm); padding: 12px; margin-top: 8px;">
+          <div style="margin-top: 8px;">
             {% for item in p.yellow_items %}
-              <div style="padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); display: flex; justify-content: space-between;">
-                <span>{{ item.qty }}x <strong>{{ item.name }}</strong> &rarr; {{ item.message }}</span>
+              <div class="change-item-row has-card-hover"
+                   data-v1-img="{{ item.original_image_url or '' }}"
+                   data-v2-img="{{ item.fixed_image_url or '' }}"
+                   data-v1-label="{{ item.original_version_label or item.original_line }}"
+                   data-v2-label="{{ item.fixed_version_label or item.fixed_line }}"
+                   data-reason="{{ item.message }}">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span class="badge badge-yellow" style="font-size: 0.7rem;">{{ item.category.replace('_', ' ') }}</span>
+                  <strong style="color: #fff;">{{ item.qty }}x {{ item.name }}</strong>
+                </div>
+                <div class="compare-chips">
+                  <span class="version-chip version-chip-v1">{{ item.original_version_label or 'V1: Requested' }}</span>
+                  <span style="color: var(--text-muted);">&rarr;</span>
+                  <span class="version-chip version-chip-v2">{{ item.fixed_version_label or 'V2: Replaced' }}</span>
+                </div>
               </div>
             {% endfor %}
           </div>

@@ -229,3 +229,75 @@ def test_empty_deck_submission_redirect_and_error_banner(client):
     assert "No valid deck found" in follow_resp.text
     assert "Include Tokens" in follow_resp.text
 
+
+def test_alchemy_rebalanced_card_conversion():
+    from app.converter import process_deck_cards
+    from unittest.mock import patch
+
+    mock_card = {
+        "name": "Teferi, Time Raveler",
+        "set": "war",
+        "collector_number": "221",
+        "image_uris": {"normal": "https://cards.scryfall.io/normal/front/war/221.jpg"},
+        "games": ["paper", "arena", "mtgo"]
+    }
+
+    with patch("app.converter.get_card_by_set_cn", return_value=mock_card), \
+         patch("app.converter.preload_cards_batch"):
+        cards = [{"qty": 1, "name": "A-Teferi, Time Raveler", "set": "war", "cn": "A-221"}]
+        audit_items, overall_status, converted_text = process_deck_cards(cards)
+
+        assert overall_status == "YELLOW"
+        assert len(audit_items) == 1
+        item = audit_items[0]
+        assert item.category == "ALCHEMY_REPLACED"
+        assert item.name == "Teferi, Time Raveler"
+        assert "1 Teferi, Time Raveler (WAR) 221" in converted_text
+        assert item.fixed_image_url == "https://cards.scryfall.io/normal/front/war/221.jpg"
+
+
+def test_admin_new_order_cycle(client):
+    import uuid
+    from app.models import Order, Deck
+    from app.database import get_db
+
+    db = next(get_db())
+    unique_id = uuid.uuid4().hex[:8]
+    test_order = Order(
+        order_id=f"test_ord_{unique_id}",
+        submitter_name="Test User",
+        reference_code=f"REF-{unique_id}",
+        total_lists=1,
+        total_cards=10,
+        total_price_cents=100,
+        price_per_card_cents=10,
+        price_per_list_cents=20,
+        order_fee_cents=50
+    )
+    db.add(test_order)
+    db.commit()
+
+    test_deck = Deck(
+        order_id=test_order.id,
+        name="Test Deck",
+        card_count=10,
+        raw_text="1 Sol Ring",
+        converted_text="1 Sol Ring"
+    )
+    db.add(test_deck)
+    db.commit()
+
+    assert db.query(Order).count() >= 1
+    assert db.query(Deck).count() >= 1
+
+    # Call /admin/cycle/new with admin cookie
+    client.cookies.set("admin_session", settings.admin_password)
+    resp = client.post("/admin/cycle/new", data={"lang": "en"}, follow_redirects=False)
+    assert resp.status_code == 303
+    assert "cycle_reset=1" in resp.headers["location"]
+
+    # Decks and orders should be wiped
+    assert db.query(Order).count() == 0
+    assert db.query(Deck).count() == 0
+
+

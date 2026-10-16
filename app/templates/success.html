@@ -2,7 +2,11 @@
 
 {% block content %}
 <div class="hero">
-  <div style="font-size: 3rem; margin-bottom: 12px;">🎉</div>
+  <div class="success-icon-badge" style="margin: 0 auto 16px;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+  </div>
   <h1>{{ t("confirmation_title") }}</h1>
   <p>{{ t("confirmation_subtitle") }}</p>
 </div>
@@ -55,6 +59,41 @@
     </div>
     {% endfor %}
   </div>
+
+  {% if deck_changes %}
+  <div style="margin-bottom: 24px; padding-top: 14px; border-top: 1px solid var(--border-subtle);">
+    <details open style="font-size: 0.86rem; color: var(--text-muted);">
+      <summary style="cursor: pointer; font-weight: 700; color: #fbbf24; margin-bottom: 10px;">
+        Detailed Log of Applied Card Changes (hover over cards to compare Version 1 vs Version 2)
+      </summary>
+      {% for group in deck_changes %}
+        <div style="margin-bottom: 14px;">
+          <div style="font-size: 0.84rem; font-weight: 600; color: #fff; margin-bottom: 6px;">
+            {{ group.deck.name }}
+          </div>
+          {% for item in group.items %}
+            <div class="change-item-row has-card-hover"
+                 data-v1-img="{{ item.original_image_url or '' }}"
+                 data-v2-img="{{ item.fixed_image_url or '' }}"
+                 data-v1-label="{{ item.original_version_label or item.original_line }}"
+                 data-v2-label="{{ item.fixed_version_label or item.fixed_line }}"
+                 data-reason="{{ item.message }}">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span class="badge badge-yellow" style="font-size: 0.7rem;">{{ item.category.replace('_', ' ') }}</span>
+                <strong style="color: #fff;">{{ item.qty }}x {{ item.name }}</strong>
+              </div>
+              <div class="compare-chips">
+                <span class="version-chip version-chip-v1">{{ item.original_version_label or 'V1: Requested' }}</span>
+                <span style="color: var(--text-muted);">&rarr;</span>
+                <span class="version-chip version-chip-v2">{{ item.fixed_version_label or 'V2: Replaced' }}</span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </details>
+  </div>
+  {% endif %}
 
   <div class="quote-box" style="margin-bottom: 0;">
     <div style="font-size: 0.82rem; font-weight: 700; color: #a5b4fc; text-transform: uppercase; margin-bottom: 8px;">
