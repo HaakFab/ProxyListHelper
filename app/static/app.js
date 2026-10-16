@@ -362,9 +362,15 @@ function initCardHoverTooltip() {
   if (!tooltip) return;
 
   const tooltipReason = document.getElementById('tooltip-reason');
+  const v1Box = document.getElementById('tooltip-v1-box');
+  const v1Title = document.getElementById('tooltip-v1-title');
   const v1Img = document.getElementById('tooltip-v1-img');
   const v1Placeholder = document.getElementById('tooltip-v1-placeholder');
   const v1Label = document.getElementById('tooltip-v1-label');
+
+  const separator = document.getElementById('tooltip-separator');
+  const v2Box = document.getElementById('tooltip-v2-box');
+  const v2Title = document.getElementById('tooltip-v2-title');
   const v2Img = document.getElementById('tooltip-v2-img');
   const v2Placeholder = document.getElementById('tooltip-v2-placeholder');
   const v2Label = document.getElementById('tooltip-v2-label');
@@ -406,33 +412,72 @@ function initCardHoverTooltip() {
     const v2Text = row.dataset.v2Label || '';
     const reason = row.dataset.reason || '';
 
+    // If v2 is present and distinct from v1, show comparison mode (V1 -> V2)
+    const isComparison = Boolean(v2 && (v2 !== v1 || (v2Text && v2Text !== v1Text)));
+
     if (tooltipReason) {
       tooltipReason.textContent = reason;
       tooltipReason.style.display = reason ? 'block' : 'none';
     }
 
-    if (v1Label) v1Label.textContent = v1Text;
-    if (v2Label) v2Label.textContent = v2Text;
-
-    if (v1Img) {
-      if (v1) {
-        v1Img.src = v1;
-        v1Img.style.display = 'block';
-        if (v1Placeholder) v1Placeholder.style.display = 'none';
-      } else {
-        v1Img.style.display = 'none';
-        if (v1Placeholder) v1Placeholder.style.display = 'block';
+    if (isComparison) {
+      // Comparison Mode (Version 1 -> Version 2)
+      if (v1Title) {
+        v1Title.textContent = row.dataset.v1Title || 'Version 1 (Original)';
+        v1Title.style.color = '#fbbf24';
       }
-    }
+      if (separator) separator.style.display = 'block';
+      if (v2Box) v2Box.style.display = 'flex';
+      if (v2Title) {
+        v2Title.textContent = row.dataset.v2Title || 'Version 2 (Replaced)';
+        v2Title.style.color = '#34d399';
+      }
 
-    if (v2Img) {
-      if (v2) {
-        v2Img.src = v2;
-        v2Img.style.display = 'block';
-        if (v2Placeholder) v2Placeholder.style.display = 'none';
-      } else {
-        v2Img.style.display = 'none';
-        if (v2Placeholder) v2Placeholder.style.display = 'block';
+      if (v1Label) v1Label.textContent = v1Text;
+      if (v2Label) v2Label.textContent = v2Text;
+
+      if (v1Img) {
+        if (v1) {
+          v1Img.src = v1;
+          v1Img.style.display = 'block';
+          if (v1Placeholder) v1Placeholder.style.display = 'none';
+        } else {
+          v1Img.style.display = 'none';
+          if (v1Placeholder) v1Placeholder.style.display = 'block';
+        }
+      }
+
+      if (v2Img) {
+        if (v2) {
+          v2Img.src = v2;
+          v2Img.style.display = 'block';
+          if (v2Placeholder) v2Placeholder.style.display = 'none';
+        } else {
+          v2Img.style.display = 'none';
+          if (v2Placeholder) v2Placeholder.style.display = 'block';
+        }
+      }
+    } else {
+      // Single Card Preview Mode
+      if (v1Title) {
+        v1Title.textContent = row.dataset.v1Title || 'Card Preview';
+        v1Title.style.color = '#a5b4fc';
+      }
+      if (separator) separator.style.display = 'none';
+      if (v2Box) v2Box.style.display = 'none';
+
+      if (v1Label) v1Label.textContent = v1Text;
+
+      const imgToUse = v1 || v2;
+      if (v1Img) {
+        if (imgToUse) {
+          v1Img.src = imgToUse;
+          v1Img.style.display = 'block';
+          if (v1Placeholder) v1Placeholder.style.display = 'none';
+        } else {
+          v1Img.style.display = 'none';
+          if (v1Placeholder) v1Placeholder.style.display = 'block';
+        }
       }
     }
 

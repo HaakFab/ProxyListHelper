@@ -393,5 +393,57 @@ def test_replace_digital_promo_cards():
         assert audit_items[0].category == "DIGITAL_REPLACED"
         assert "1 Force of Will (DMR) 60" in converted_text
 
+def test_replace_promo_pack_stamped_broodlord():
+    from app.converter import process_deck_cards
+    from unittest.mock import patch
+
+    mock_stamped_broodlord = {
+        "name": "Hoarding Broodlord",
+        "set": "pmom",
+        "collector_number": "110p",
+        "promo_types": ["promopack", "stamped"],
+        "finishes": ["nonfoil", "foil"],
+        "games": ["paper"],
+        "image_uris": {"normal": "https://cards.scryfall.io/normal/front/pmom/110p.jpg"}
+    }
+    mock_clean_broodlord = {
+        "name": "Hoarding Broodlord",
+        "set": "mom",
+        "collector_number": "110",
+        "promo_types": [],
+        "finishes": ["nonfoil", "foil"],
+        "games": ["paper"],
+        "image_uris": {"normal": "https://cards.scryfall.io/normal/front/mom/110.jpg"}
+    }
+
+    with patch("app.converter.get_card_by_set_cn", return_value=mock_stamped_broodlord), \
+         patch("app.converter.find_clean_paper_fallback", return_value=mock_clean_broodlord), \
+         patch("app.converter.preload_cards_batch"):
+        cards = [{"qty": 1, "name": "Hoarding Broodlord", "set": "pmom", "cn": "110p"}]
+        audit_items, overall_status, converted_text = process_deck_cards(cards, replace_stamps=True)
+
+        assert overall_status == "YELLOW"
+        assert len(audit_items) == 1
+        assert audit_items[0].category == "STAMP_REPLACED"
+        assert audit_items[0].original_image_url == "https://cards.scryfall.io/normal/front/pmom/110p.jpg"
+        assert audit_items[0].fixed_image_url == "https://cards.scryfall.io/normal/front/mom/110.jpg"
+        assert "1 Hoarding Broodlord (MOM) 110" in converted_text
 
 
+def test_find_clean_paper_fallback_query_encoding():
+    from app.scryfall import find_clean_paper_fallback
+    from unittest.mock import patch
+
+    captured_urls = []
+    def mock_scryfall_get(url):
+        captured_urls.append(url)
+        return {"data": [{"name": "Hoarding Broodlord", "set": "mom", "collector_number": "110"}]}
+
+    with patch("app.scryfall._scryfall_get", side_effect=mock_scryfall_get):
+        res = find_clean_paper_fallback("Hoarding Broodlord")
+        assert res is not None
+        assert res["set"] == "mom"
+        assert len(captured_urls) > 0
+        # Verify query is properly URL-encoded and has no raw quotes
+        assert '"' not in captured_urls[0]
+        assert "%22" in captured_urls[0] or "%21" in captured_urls[0]

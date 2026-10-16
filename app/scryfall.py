@@ -226,31 +226,49 @@ def find_clean_paper_fallback(
     """
     Finds a standard paper printing for a card name.
     Prioritizes non-foil, non-stamped, non-digital releases.
+    Properly URL-encodes queries to prevent Scryfall 400 Bad Request errors.
     """
     clean_name = card_name.split(" // ")[0].strip()
-    encoded = urllib.parse.quote(clean_name)
+    clean_name = clean_name.replace("’", "'").replace("‘", "'").replace("—", "-").replace("–", "-")
     
-    query_parts = [f'!\"{encoded}\"', "game:paper"]
+    # 1. Primary strict search: paper, non-digital, and user-selected filters
+    query_parts = [f'!\"{clean_name}\"', "game:paper", "not:digital"]
     if prefer_nonfoil:
         query_parts.append("is:nonfoil")
     if avoid_stamped:
         query_parts.append("-is:stamped")
     if avoid_datestamped:
         query_parts.append("-is:datestamped")
-    query_parts.append("not:digital")
         
-    query_str = "+".join(query_parts)
-    url = f"https://api.scryfall.com/cards/search?q={query_str}&order=released&dir=desc"
+    params = urllib.parse.urlencode({"q": " ".join(query_parts), "order": "released", "dir": "desc"})
+    url = f"https://api.scryfall.com/cards/search?{params}"
     data = _scryfall_get(url)
-    
     if data and "data" in data and len(data["data"]) > 0:
         return data["data"][0]
         
-    # Fallback to any paper printing if strict query had no hits
-    url_fallback = f"https://api.scryfall.com/cards/search?q=!\"{encoded}\"+game:paper&order=released&dir=desc"
-    data_fallback = _scryfall_get(url_fallback)
-    if data_fallback and "data" in data_fallback and len(data_fallback["data"]) > 0:
-        return data_fallback["data"][0]
+    # 2. Relaxed search: keep avoid_stamped and avoid_datestamped, relax nonfoil
+    if prefer_nonfoil:
+        relaxed_parts = [f'!\"{clean_name}\"', "game:paper", "not:digital"]
+        if avoid_stamped:
+            relaxed_parts.append("-is:stamped")
+        if avoid_datestamped:
+            relaxed_parts.append("-is:datestamped")
+        params_rel = urllib.parse.urlencode({"q": " ".join(relaxed_parts), "order": "released", "dir": "desc"})
+        data_rel = _scryfall_get(f"https://api.scryfall.com/cards/search?{params_rel}")
+        if data_rel and "data" in data_rel and len(data_rel["data"]) > 0:
+            return data_rel["data"][0]
+
+    # 3. Paper non-digital fallback
+    params_pnd = urllib.parse.urlencode({"q": f'!\"{clean_name}\" game:paper not:digital', "order": "released", "dir": "desc"})
+    data_pnd = _scryfall_get(f"https://api.scryfall.com/cards/search?{params_pnd}")
+    if data_pnd and "data" in data_pnd and len(data_pnd["data"]) > 0:
+        return data_pnd["data"][0]
+
+    # 4. Any paper fallback
+    params_paper = urllib.parse.urlencode({"q": f'!\"{clean_name}\" game:paper', "order": "released", "dir": "desc"})
+    data_paper = _scryfall_get(f"https://api.scryfall.com/cards/search?{params_paper}")
+    if data_paper and "data" in data_paper and len(data_paper["data"]) > 0:
+        return data_paper["data"][0]
         
     return None
 

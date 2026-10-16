@@ -810,6 +810,22 @@ a:hover {
   position: relative;
 }
 
+.parsed-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 0.82rem;
+  border-radius: 4px;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.parsed-card-row:hover {
+  background: rgba(99, 102, 241, 0.14);
+  color: #fff;
+}
+
 .compare-chips {
   display: flex;
   align-items: center;

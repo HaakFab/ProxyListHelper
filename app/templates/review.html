@@ -77,7 +77,7 @@
       <div style="margin-bottom: 20px;">
         <details open style="font-size: 0.86rem; color: var(--text-muted);">
           <summary style="cursor: pointer; font-weight: 700; color: #fbbf24; margin-bottom: 8px;">
-            Applied Auto-Fixes ({{ p.yellow_items|length }} cards converted &bull; hover to preview)
+            📋 Card Replacements Log ({{ p.yellow_items|length }} cards converted &bull; hover over any card to preview)
           </summary>
           <div style="margin-top: 8px;">
             {% for item in p.yellow_items %}
@@ -101,6 +101,10 @@
           </div>
         </details>
       </div>
+    {% else %}
+      <div style="font-size: 0.82rem; color: #a7f3d0; background: rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.2); padding: 8px 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
+        ✓ No card replacements needed &bull; All requested printings are clean paper versions.
+      </div>
     {% endif %}
 
     <!-- 🟢 ALL PARSED CARDS IN THIS DECK -->
@@ -108,11 +112,14 @@
       <div style="margin-top: 14px;">
         <details style="font-size: 0.86rem; color: var(--text-muted);">
           <summary style="cursor: pointer; font-weight: 600; color: #34d399; margin-bottom: 8px;">
-            Parsed Cards Overview ({{ p.green_items|length }} cards verified &bull; click to expand)
+            Parsed Cards Overview ({{ p.green_items|length }} cards verified &bull; hover to preview scan)
           </summary>
           <div style="max-height: 240px; overflow-y: auto; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 8px 12px; margin-top: 6px;">
             {% for item in p.green_items %}
-              <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04); font-size: 0.82rem;">
+              <div class="parsed-card-row has-card-hover"
+                   data-v1-img="{{ item.original_image_url or '' }}"
+                   data-v1-label="{{ item.name }} ({{ item.set.upper() if item.set else '' }} #{{ item.cn or '' }})"
+                   data-reason="{{ item.name }} &bull; {{ item.set.upper() if item.set else '' }} #{{ item.cn or '' }} &bull; Verified on Scryfall">
                 <span><strong>{{ item.qty }}x</strong> {{ item.name }}</span>
                 <span style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted);">
                   {{ item.set.upper() if item.set else '' }} #{{ item.cn or '' }}
