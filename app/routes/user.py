@@ -113,6 +113,8 @@ async def submit_decks(
         inc_tokens = bool(form_data.get(f"include_tokens_{i}"))
         conv_foils = bool(form_data.get(f"convert_foils_{i}", "on"))
         rep_stamps = bool(form_data.get(f"replace_stamps_{i}", "on"))
+        rep_date_stamps = bool(form_data.get(f"replace_date_stamps_{i}", "on"))
+        rep_digital = bool(form_data.get(f"replace_digital_{i}", "on"))
         
         raw_cards = []
         raw_text_storage = ""
@@ -162,6 +164,8 @@ async def submit_decks(
             preferred_language=pref_lang,
             convert_foils=conv_foils,
             replace_stamps=rep_stamps,
+            replace_date_stamps=rep_date_stamps,
+            replace_digital=rep_digital,
             deck_name=deck_name
         )
         
@@ -183,6 +187,8 @@ async def submit_decks(
             include_tokens=inc_tokens,
             convert_foils=conv_foils,
             replace_stamps=rep_stamps,
+            replace_date_stamps=rep_date_stamps,
+            replace_digital=rep_digital,
             custom_back_filename=back_filename,
             custom_back_data=back_data,
             custom_back_content_type=back_content_type,
@@ -204,9 +210,8 @@ async def submit_decks(
     order.total_price_cents = compute_total_cents(total_order_cards, decks_processed, rates)
     db.commit()
     
-    if has_any_red:
-        return RedirectResponse(f"/review/{order_id}?lang={ui_lang}", status_code=303)
-    return RedirectResponse(f"/success/{order_id}?lang={ui_lang}", status_code=303)
+    # Always redirect to review page so the user sees the complete overview of parsed cards and changes before accepting
+    return RedirectResponse(f"/review/{order_id}?lang={ui_lang}", status_code=303)
 
 @router.get("/review/{order_id}", response_class=HTMLResponse)
 def review_order(request: Request, order_id: str, lang: str = "en", db: Session = Depends(get_db)):
@@ -334,7 +339,7 @@ def success_page(request: Request, order_id: str, lang: str = "en", db: Session 
     for d in order.decks:
         try:
             diag = json.loads(d.diagnostics_json or "[]")
-            yellows = [i for i in diag if i.get("status") == "YELLOW" or i.get("can_autofix") or i.get("category") in ("FOIL_REPLACED", "STAMP_REPLACED", "ALCHEMY_REPLACED", "DIGITAL_REPLACED")]
+            yellows = [i for i in diag if i.get("status") == "YELLOW" or i.get("can_autofix") or i.get("category") in ("FOIL_REPLACED", "STAMP_REPLACED", "DATE_STAMP_REPLACED", "ALCHEMY_REPLACED", "DIGITAL_REPLACED")]
             if yellows:
                 deck_changes.append({"deck": d, "items": yellows})
         except Exception:

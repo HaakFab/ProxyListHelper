@@ -195,6 +195,14 @@ function addDeckForm() {
         <input type="checkbox" id="replace_stamps_${idx}" name="replace_stamps_${idx}" checked>
         Replace Promo 'Planeswalker Stamped' Cards
       </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="replace_date_stamps_${idx}" name="replace_date_stamps_${idx}" checked>
+        Replace 'Date-Stamped' Prerelease Cards
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="replace_digital_${idx}" name="replace_digital_${idx}" checked>
+        Replace Digital Versions (MTGO Promos, etc.) with Paper
+      </label>
     </div>
 
     <div class="form-group">

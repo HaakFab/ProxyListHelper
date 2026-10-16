@@ -301,3 +301,97 @@ def test_admin_new_order_cycle(client):
     assert db.query(Deck).count() == 0
 
 
+def test_moxfield_tokens_excludes_spellbook_and_regular_cards():
+    from app.moxfield import extract_deck_cards
+
+    mock_deck = {
+        "name": "Spellbook Test",
+        "boards": {
+            "mainboard": {
+                "cards": {
+                    "m1": {"quantity": 1, "card": {"name": "Ponder", "set": "who", "cn": "217"}}
+                }
+            }
+        },
+        "tokens": [
+            {"name": "Treasure", "set": "tsos", "cn": "12", "isToken": True, "layout": "token", "type_line": "Token Artifact — Treasure"},
+            {"name": "Preponderant Pearl", "set": "yecl", "cn": "5", "isToken": False, "layout": "normal", "type_line": "Kindred Artifact — Merfolk"},
+            {"name": "Tome of the Infinite", "set": "j21", "cn": "13", "isToken": False, "layout": "normal", "type_line": "Legendary Artifact — Book"},
+            {"name": "Command Tower", "set": "slz", "cn": "360", "isToken": False, "layout": "normal", "type_line": "Land"}
+        ]
+    }
+
+    _, cards = extract_deck_cards(mock_deck, include_tokens=True)
+    names = [c["name"] for c in cards]
+    assert "Ponder" in names
+    assert "Treasure" in names
+    assert "Preponderant Pearl" not in names
+    assert "Tome of the Infinite" not in names
+    assert "Command Tower" not in names
+
+
+def test_replace_date_stamped_promo_cards():
+    from app.converter import process_deck_cards
+    from unittest.mock import patch
+
+    mock_promo_card = {
+        "name": "Smothering Tithe",
+        "set": "prna",
+        "collector_number": "22",
+        "promo_types": ["prerelease", "datestamped"],
+        "image_uris": {"normal": "https://cards.scryfall.io/normal/front/prna/22.jpg"}
+    }
+    mock_clean_card = {
+        "name": "Smothering Tithe",
+        "set": "cmm",
+        "collector_number": "57",
+        "promo_types": [],
+        "image_uris": {"normal": "https://cards.scryfall.io/normal/front/cmm/57.jpg"}
+    }
+
+    with patch("app.converter.get_card_by_set_cn", return_value=mock_promo_card), \
+         patch("app.converter.find_clean_paper_fallback", return_value=mock_clean_card), \
+         patch("app.converter.preload_cards_batch"):
+        cards = [{"qty": 1, "name": "Smothering Tithe", "set": "prna", "cn": "22"}]
+        audit_items, overall_status, converted_text = process_deck_cards(cards, replace_date_stamps=True)
+
+        assert overall_status == "YELLOW"
+        assert len(audit_items) == 1
+        assert audit_items[0].category == "DATE_STAMP_REPLACED"
+        assert "1 Smothering Tithe (CMM) 57" in converted_text
+
+
+def test_replace_digital_promo_cards():
+    from app.converter import process_deck_cards
+    from unittest.mock import patch
+
+    mock_digital_card = {
+        "name": "Force of Will",
+        "set": "vma",
+        "collector_number": "4",
+        "digital": True,
+        "games": ["mtgo"],
+        "image_uris": {"normal": "https://cards.scryfall.io/normal/front/vma/4.jpg"}
+    }
+    mock_paper_card = {
+        "name": "Force of Will",
+        "set": "dmr",
+        "collector_number": "60",
+        "digital": False,
+        "games": ["paper", "mtgo"],
+        "image_uris": {"normal": "https://cards.scryfall.io/normal/front/dmr/60.jpg"}
+    }
+
+    with patch("app.converter.get_card_by_set_cn", return_value=mock_digital_card), \
+         patch("app.converter.find_clean_paper_fallback", return_value=mock_paper_card), \
+         patch("app.converter.preload_cards_batch"):
+        cards = [{"qty": 1, "name": "Force of Will", "set": "vma", "cn": "4"}]
+        audit_items, overall_status, converted_text = process_deck_cards(cards, replace_digital=True)
+
+        assert overall_status == "YELLOW"
+        assert len(audit_items) == 1
+        assert audit_items[0].category == "DIGITAL_REPLACED"
+        assert "1 Force of Will (DMR) 60" in converted_text
+
+
+

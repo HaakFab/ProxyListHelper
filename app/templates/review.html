@@ -103,6 +103,27 @@
       </div>
     {% endif %}
 
+    <!-- 🟢 ALL PARSED CARDS IN THIS DECK -->
+    {% if p.green_items %}
+      <div style="margin-top: 14px;">
+        <details style="font-size: 0.86rem; color: var(--text-muted);">
+          <summary style="cursor: pointer; font-weight: 600; color: #34d399; margin-bottom: 8px;">
+            Parsed Cards Overview ({{ p.green_items|length }} cards verified &bull; click to expand)
+          </summary>
+          <div style="max-height: 240px; overflow-y: auto; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 8px 12px; margin-top: 6px;">
+            {% for item in p.green_items %}
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04); font-size: 0.82rem;">
+                <span><strong>{{ item.qty }}x</strong> {{ item.name }}</span>
+                <span style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted);">
+                  {{ item.set.upper() if item.set else '' }} #{{ item.cn or '' }}
+                </span>
+              </div>
+            {% endfor %}
+          </div>
+        </details>
+      </div>
+    {% endif %}
+
     <!-- Custom back indicator -->
     {% if p.deck.custom_back_filename %}
       <div style="display: flex; align-items: center; gap: 12px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-subtle);">
@@ -140,8 +161,11 @@
     </div>
   </div>
 
-  <div class="action-row">
-    <button type="submit" class="btn btn-primary btn-block" style="font-size: 1.05rem; padding: 16px;">
+  <div class="action-row" style="display: flex; gap: 12px; flex-wrap: wrap;">
+    <a href="/?lang={{ lang }}" class="btn btn-secondary" style="flex: 1; text-align: center; display: flex; align-items: center; justify-content: center;">
+      &larr; Edit Decks
+    </a>
+    <button type="submit" class="btn btn-primary" style="flex: 2; font-size: 1.05rem; padding: 16px;">
       ✓ {{ t("submit_order") }}
     </button>
   </div>

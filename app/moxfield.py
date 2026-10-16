@@ -111,15 +111,33 @@ def extract_deck_cards(
                 "board": "tokens",
             })
             
-        # 2. From deck_data.tokens list
+        # 2. From deck_data.tokens list (filter out spellbook/related normal cards)
         for tok in deck_data.get("tokens", []):
-            key = (tok.get("name"), tok.get("set", "").lower(), str(tok.get("cn", "")))
+            is_token_flag = tok.get("isToken")
+            layout = tok.get("layout", "")
+            type_line = tok.get("type_line", "")
+            set_code = (tok.get("set") or "").lower()
+
+            # Ignore cards explicitly marked as non-token or having a standard normal layout without token type
+            if is_token_flag is False and layout == "normal":
+                continue
+            is_real_token = (
+                is_token_flag is True
+                or layout in ("token", "double_faced_token", "emblem")
+                or type_line.startswith("Token")
+                or type_line.startswith("Emblem")
+                or set_code.startswith("t")
+            )
+            if not is_real_token:
+                continue
+
+            key = (tok.get("name"), set_code, str(tok.get("cn", "")))
             if key not in seen_tokens:
                 seen_tokens.add(key)
                 extracted_cards.append({
                     "qty": 1,
                     "name": tok.get("name", ""),
-                    "set": tok.get("set", "").lower(),
+                    "set": set_code,
                     "cn": str(tok.get("cn", "")).strip(),
                     "is_foil": False,
                     "promo_types": tok.get("promo_types", []) or [],

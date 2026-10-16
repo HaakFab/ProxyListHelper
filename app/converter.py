@@ -7,6 +7,8 @@ from .scryfall import (
     get_card_image_url,
     is_foil_only,
     has_planeswalker_stamp,
+    has_date_stamp,
+    is_digital_card,
     find_clean_paper_fallback,
     check_localized_scan
 )
@@ -102,6 +104,8 @@ def process_deck_cards(
     preferred_language: str = "en",
     convert_foils: bool = True,
     replace_stamps: bool = True,
+    replace_date_stamps: bool = True,
+    replace_digital: bool = True,
     deck_name: str = "Deck"
 ) -> Tuple[List[CardAuditItem], str, str]:
     """
@@ -201,49 +205,78 @@ def process_deck_cards(
 
         initial_img = get_card_image_url(card_data)
             
-        # 2. Check Digital-only
-        if card_data.get("digital") is True:
-            paper_fallback = find_clean_paper_fallback(name, prefer_nonfoil=True, avoid_stamped=True)
-            if paper_fallback:
-                fb_set = paper_fallback.get("set", "").lower()
-                fb_cn = paper_fallback.get("collector_number", "").strip()
-                fixed = format_card_line(qty, name, fb_set, fb_cn, back_name, back_set, back_cn)
-                audit_item = CardAuditItem(
-                    qty=qty, name=name, set_code=set_code, cn=cn,
-                    status="YELLOW", category="DIGITAL_REPLACED",
-                    message=f"Digital printing replaced with paper printing ({fb_set.upper()} #{fb_cn}).",
-                    original_line=orig_line, fixed_line=fixed, can_autofix=True,
-                    suggested_set=fb_set, suggested_cn=fb_cn,
-                    original_image_url=initial_img,
-                    fixed_image_url=get_card_image_url(paper_fallback),
-                    original_version_label=f"Digital ({set_code.upper()} #{cn})",
-                    fixed_version_label=f"Paper ({fb_set.upper()} #{fb_cn})",
-                    back_name=back_name, back_set=back_set, back_cn=back_cn
+        # 2. Check Digital / MTGO Promos
+        is_digital = is_digital_card(card_data)
+        if is_digital:
+            if replace_digital:
+                paper_fallback = find_clean_paper_fallback(
+                    name,
+                    prefer_nonfoil=convert_foils,
+                    avoid_stamped=replace_stamps,
+                    avoid_datestamped=replace_date_stamps
                 )
-                audit_items.append(audit_item)
-                card_flagged = True
-                if overall_status != "RED":
-                    overall_status = "YELLOW"
-                set_code, cn = fb_set, fb_cn
-                card_data = paper_fallback
-                initial_img = get_card_image_url(paper_fallback)
+                if paper_fallback:
+                    fb_set = paper_fallback.get("set", "").lower()
+                    fb_cn = paper_fallback.get("collector_number", "").strip()
+                    fixed = format_card_line(qty, name, fb_set, fb_cn, back_name, back_set, back_cn)
+                    audit_item = CardAuditItem(
+                        qty=qty, name=name, set_code=set_code, cn=cn,
+                        status="YELLOW", category="DIGITAL_REPLACED",
+                        message=f"Digital/MTGO promo replaced with official paper printing ({fb_set.upper()} #{fb_cn}).",
+                        original_line=orig_line, fixed_line=fixed, can_autofix=True,
+                        suggested_set=fb_set, suggested_cn=fb_cn,
+                        original_image_url=initial_img,
+                        fixed_image_url=get_card_image_url(paper_fallback),
+                        original_version_label=f"Digital ({set_code.upper()} #{cn})",
+                        fixed_version_label=f"Paper ({fb_set.upper()} #{fb_cn})",
+                        back_name=back_name, back_set=back_set, back_cn=back_cn
+                    )
+                    audit_items.append(audit_item)
+                    card_flagged = True
+                    if overall_status != "RED":
+                        overall_status = "YELLOW"
+                    set_code, cn = fb_set, fb_cn
+                    card_data = paper_fallback
+                    initial_img = get_card_image_url(paper_fallback)
+                else:
+                    audit_item = CardAuditItem(
+                        qty=qty, name=name, set_code=set_code, cn=cn,
+                        status="RED", category="DIGITAL_ONLY",
+                        message=f"'{name}' is digital-only and has no paper release.",
+                        original_line=orig_line, fixed_line=orig_line, can_autofix=False,
+                        original_image_url=initial_img,
+                        original_version_label=f"Digital ({set_code.upper()} #{cn})",
+                        back_name=back_name, back_set=back_set, back_cn=back_cn
+                    )
+                    audit_items.append(audit_item)
+                    overall_status = "RED"
+                    continue
             else:
-                audit_item = CardAuditItem(
-                    qty=qty, name=name, set_code=set_code, cn=cn,
-                    status="RED", category="DIGITAL_ONLY",
-                    message=f"'{name}' is digital-only and has no paper release.",
-                    original_line=orig_line, fixed_line=orig_line, can_autofix=False,
-                    original_image_url=initial_img,
-                    original_version_label=f"Digital ({set_code.upper()} #{cn})",
-                    back_name=back_name, back_set=back_set, back_cn=back_cn
-                )
-                audit_items.append(audit_item)
-                overall_status = "RED"
-                continue
+                games = card_data.get("games", [])
+                if card_data.get("digital") is True and games and "paper" not in games:
+                    paper_check = find_clean_paper_fallback(name)
+                    if not paper_check:
+                        audit_item = CardAuditItem(
+                            qty=qty, name=name, set_code=set_code, cn=cn,
+                            status="RED", category="DIGITAL_ONLY",
+                            message=f"'{name}' is digital-only and has no paper release.",
+                            original_line=orig_line, fixed_line=orig_line, can_autofix=False,
+                            original_image_url=initial_img,
+                            original_version_label=f"Digital ({set_code.upper()} #{cn})",
+                            back_name=back_name, back_set=back_set, back_cn=back_cn
+                        )
+                        audit_items.append(audit_item)
+                        overall_status = "RED"
+                        continue
                 
         # 3. Check Promo Planeswalker Stamp
         if replace_stamps and has_planeswalker_stamp(card_data):
-            clean_fallback = find_clean_paper_fallback(name, prefer_nonfoil=convert_foils, avoid_stamped=True)
+            clean_fallback = find_clean_paper_fallback(
+                name,
+                prefer_nonfoil=convert_foils,
+                avoid_stamped=True,
+                avoid_datestamped=replace_date_stamps
+            )
             if clean_fallback:
                 fb_set = clean_fallback.get("set", "").lower()
                 fb_cn = clean_fallback.get("collector_number", "").strip()
@@ -268,9 +301,46 @@ def process_deck_cards(
                 card_data = clean_fallback
                 initial_img = get_card_image_url(clean_fallback)
 
+        # 3b. Check Date-Stamped Promo (Prerelease, etc.)
+        if replace_date_stamps and has_date_stamp(card_data):
+            clean_fallback = find_clean_paper_fallback(
+                name,
+                prefer_nonfoil=convert_foils,
+                avoid_stamped=replace_stamps,
+                avoid_datestamped=True
+            )
+            if clean_fallback:
+                fb_set = clean_fallback.get("set", "").lower()
+                fb_cn = clean_fallback.get("collector_number", "").strip()
+                fixed = format_card_line(qty, name, fb_set, fb_cn, back_name, back_set, back_cn)
+                audit_item = CardAuditItem(
+                    qty=qty, name=name, set_code=set_code, cn=cn,
+                    status="YELLOW", category="DATE_STAMP_REPLACED",
+                    message=f"Date-stamped promo replaced with clean printing ({fb_set.upper()} #{fb_cn}).",
+                    original_line=orig_line, fixed_line=fixed, can_autofix=True,
+                    suggested_set=fb_set, suggested_cn=fb_cn,
+                    original_image_url=initial_img,
+                    fixed_image_url=get_card_image_url(clean_fallback),
+                    original_version_label=f"Date Stamped ({set_code.upper()} #{cn})",
+                    fixed_version_label=f"Clean Paper ({fb_set.upper()} #{fb_cn})",
+                    back_name=back_name, back_set=back_set, back_cn=back_cn
+                )
+                audit_items.append(audit_item)
+                card_flagged = True
+                if overall_status != "RED":
+                    overall_status = "YELLOW"
+                set_code, cn = fb_set, fb_cn
+                card_data = clean_fallback
+                initial_img = get_card_image_url(clean_fallback)
+
         # 4. Check Foil-only
         if convert_foils and is_foil_only(card_data):
-            nonfoil_fallback = find_clean_paper_fallback(name, prefer_nonfoil=True, avoid_stamped=replace_stamps)
+            nonfoil_fallback = find_clean_paper_fallback(
+                name,
+                prefer_nonfoil=True,
+                avoid_stamped=replace_stamps,
+                avoid_datestamped=replace_date_stamps
+            )
             if nonfoil_fallback:
                 fb_set = nonfoil_fallback.get("set", "").lower()
                 fb_cn = nonfoil_fallback.get("collector_number", "").strip()

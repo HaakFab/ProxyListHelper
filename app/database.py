@@ -35,12 +35,17 @@ Base = declarative_base()
 def init_db():
     Base.metadata.create_all(bind=engine)
     with engine.connect() as conn:
-        try:
-            from sqlalchemy import text
-            conn.execute(text("ALTER TABLE decks ADD COLUMN include_tokens BOOLEAN DEFAULT 0 NOT NULL"))
-            conn.commit()
-        except Exception:
-            pass
+        from sqlalchemy import text
+        for col_stmt in [
+            "ALTER TABLE decks ADD COLUMN include_tokens BOOLEAN DEFAULT 0 NOT NULL",
+            "ALTER TABLE decks ADD COLUMN replace_date_stamps BOOLEAN DEFAULT 1 NOT NULL",
+            "ALTER TABLE decks ADD COLUMN replace_digital BOOLEAN DEFAULT 1 NOT NULL",
+        ]:
+            try:
+                conn.execute(text(col_stmt))
+                conn.commit()
+            except Exception:
+                pass
 
 def get_db():
     db = SessionLocal()

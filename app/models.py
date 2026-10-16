@@ -51,6 +51,8 @@ class Deck(Base):
     include_tokens = Column(Boolean, default=False, nullable=False)
     convert_foils = Column(Boolean, default=True, nullable=False)
     replace_stamps = Column(Boolean, default=True, nullable=False)
+    replace_date_stamps = Column(Boolean, default=True, nullable=False)
+    replace_digital = Column(Boolean, default=True, nullable=False)
     
     custom_back_filename = Column(String(128), nullable=True)
     custom_back_data = Column(LargeBinary, nullable=True)

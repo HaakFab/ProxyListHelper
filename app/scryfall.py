@@ -197,14 +197,35 @@ def has_planeswalker_stamp(card_data: dict) -> bool:
         return True
     return False
 
+def has_date_stamp(card_data: dict) -> bool:
+    """Checks if a card has a date stamp (prerelease promo, release promo, etc.)."""
+    promo_types = card_data.get("promo_types", []) or []
+    return any(pt in promo_types for pt in ("datestamped", "prerelease", "datestamp", "date_stamped"))
+
+def is_digital_card(card_data: dict) -> bool:
+    """Checks if a card printing is digital (MTGO, Arena, Alchemy, digital promo, etc.)."""
+    if card_data.get("digital") is True:
+        return True
+    games = card_data.get("games", [])
+    if games and "paper" not in games:
+        return True
+    set_code = (card_data.get("set") or "").lower()
+    if set_code in ("vma", "tpr", "me1", "me2", "me3", "me4", "pz1", "pz2", "prm", "pmod"):
+        return True
+    promo_types = card_data.get("promo_types", []) or []
+    if "digital" in promo_types:
+        return True
+    return False
+
 def find_clean_paper_fallback(
     card_name: str,
     prefer_nonfoil: bool = True,
-    avoid_stamped: bool = True
+    avoid_stamped: bool = True,
+    avoid_datestamped: bool = True
 ) -> Optional[dict]:
     """
     Finds a standard paper printing for a card name.
-    Prioritizes non-foil, non-stamped releases.
+    Prioritizes non-foil, non-stamped, non-digital releases.
     """
     clean_name = card_name.split(" // ")[0].strip()
     encoded = urllib.parse.quote(clean_name)
@@ -214,6 +235,9 @@ def find_clean_paper_fallback(
         query_parts.append("is:nonfoil")
     if avoid_stamped:
         query_parts.append("-is:stamped")
+    if avoid_datestamped:
+        query_parts.append("-is:datestamped")
+    query_parts.append("not:digital")
         
     query_str = "+".join(query_parts)
     url = f"https://api.scryfall.com/cards/search?q={query_str}&order=released&dir=desc"
