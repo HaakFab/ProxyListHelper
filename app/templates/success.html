@@ -1,9 +1,5 @@
 {% extends "base.html" %}
 
-{% block extra_head %}
-<meta http-equiv="refresh" content="10;url=/?lang={{ lang }}">
-{% endblock %}
-
 {% block content %}
 <div class="hero">
   <div style="display: inline-block; margin-bottom: 12px;">
@@ -12,32 +8,22 @@
     </span>
   </div>
   <h1 style="font-size: 2.1rem; line-height: 1.25; margin-bottom: 10px;">{{ t("confirmation_title") }}</h1>
-  <p style="font-size: 1.15rem; font-weight: 700; color: #111111; margin-bottom: 0;">{{ t("confirmation_subtitle") }}</p>
-</div>
-
-<!-- Automatic 10-Second Redirect Countdown Banner -->
-<div class="glass-card" style="border: 2px solid var(--border-ink); background: #FFFBEB; text-align: center; margin-bottom: 24px; box-shadow: 4px 4px 0px #000000;">
-  <div style="font-family: var(--font-mono); font-size: 0.78rem; font-weight: 800; color: #78350F; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;">
-    // AUTOMATIC SESSION REDIRECT //
-  </div>
-  <div style="font-family: var(--font-mono); font-size: 1.5rem; font-weight: 900; color: #111111; margin-bottom: 14px;">
-    RETURNING TO STARTING SCREEN IN <span id="countdown-timer" style="background: #111111; color: var(--accent-acid); padding: 2px 12px; border: 2px solid #111111; display: inline-block;">10</span> SECONDS
-  </div>
-  <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
-    <a href="/?lang={{ lang }}" class="btn btn-primary" style="padding: 12px 24px; font-size: 0.95rem;">
-      [{{ t("return_home_now")|upper }}]
-    </a>
-  </div>
+  <p style="font-size: 1.1rem; font-weight: 700; color: #111111; margin-bottom: 0;">{{ t("confirmation_subtitle") }}</p>
 </div>
 
 {% if order %}
-<!-- Physical Work Ticket Voucher -->
-<div class="glass-card" style="text-align: center; border: 2px solid var(--border-ink);">
+<!-- Physical Work Ticket Voucher & Copy Box -->
+<div class="glass-card" style="text-align: center; border: 2px solid var(--border-ink); background: #FFFFFF; box-shadow: 4px 4px 0px #000000; margin-bottom: 24px;">
   <div style="font-family: var(--font-mono); font-size: 0.76rem; font-weight: 800; color: #555; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;">
     ✄ --- PRE-PRESS PRODUCTION IDENTIFIER &bull; ATTACH TO PHYSICAL ORDER --- ✄
   </div>
-  <div style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 900; color: var(--text-dark); letter-spacing: 0.08em; background: #FFFFFF; padding: 14px 24px; border: 2px dashed var(--border-ink); display: inline-block; margin-bottom: 12px; box-shadow: 4px 4px 0px #000000;">
+  <div id="reference-code-display" style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 900; color: var(--text-dark); letter-spacing: 0.08em; background: #F8FAFC; padding: 14px 24px; border: 2px dashed var(--border-ink); display: inline-block; margin-bottom: 14px; box-shadow: 3px 3px 0px #000000;">
     {{ order.reference_code }}
+  </div>
+  <div style="margin-bottom: 12px;">
+    <button type="button" id="copy-code-btn" class="btn btn-primary" onclick="copyRefCode('{{ order.reference_code }}')" style="font-size: 0.88rem; padding: 10px 20px;">
+      [{{ t("copy_reference_code")|upper }}]
+    </button>
   </div>
   <div style="font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; color: #444;">
     {{ t("reference_hint") }}
@@ -149,27 +135,43 @@
 </div>
 {% endif %}
 
-<div class="action-row" style="margin-top: 20px;">
-  <a href="/?lang={{ lang }}" class="btn btn-secondary btn-block">
+<div class="action-row" style="margin-top: 24px;">
+  <a href="/?lang={{ lang }}" class="btn btn-primary btn-block" style="text-align: center; padding: 16px;">
     [&larr; {{ t("return_home_now")|upper }}]
   </a>
 </div>
 
 <script>
-  (function() {
-    var count = 10;
-    var timerEl = document.getElementById("countdown-timer");
-    var target = "/?lang={{ lang }}";
-    var interval = setInterval(function() {
-      count--;
-      if (timerEl) {
-        timerEl.textContent = count;
+function copyRefCode(code) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(function() {
+      var btn = document.getElementById("copy-code-btn");
+      if (btn) {
+        btn.textContent = "[✓ {{ t('copied_reference_code')|upper }}]";
+        btn.style.background = "var(--accent-acid)";
+        btn.style.color = "#111111";
+        setTimeout(function() {
+          btn.textContent = "[{{ t('copy_reference_code')|upper }}]";
+          btn.style.background = "";
+          btn.style.color = "";
+        }, 3000);
       }
-      if (count <= 0) {
-        clearInterval(interval);
-        window.location.href = target;
-      }
-    }, 1000);
-  })();
+    });
+  } else {
+    var tempInput = document.createElement("input");
+    tempInput.value = code;
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    document.execCommand("copy");
+    document.body.removeChild(tempInput);
+    var btn = document.getElementById("copy-code-btn");
+    if (btn) {
+      btn.textContent = "[✓ {{ t('copied_reference_code')|upper }}]";
+      setTimeout(function() {
+        btn.textContent = "[{{ t('copy_reference_code')|upper }}]";
+      }, 3000);
+    }
+  }
+}
 </script>
 {% endblock %}

@@ -75,6 +75,10 @@ function handleMoxfieldInput(deckIndex) {
       if (data.has_tokens && tokenCheckbox) {
         tokenCheckbox.parentElement.style.fontWeight = '600';
       }
+      const stickerCheckbox = document.getElementById(`include_stickers_${deckIndex}`);
+      if (data.has_stickers && stickerCheckbox) {
+        stickerCheckbox.parentElement.style.fontWeight = '600';
+      }
     } else {
       if (statusBadge) {
         statusBadge.className = 'badge badge-red';
@@ -187,6 +191,10 @@ function addDeckForm() {
       <label class="checkbox-label">
         <input type="checkbox" id="include_tokens_${idx}" name="include_tokens_${idx}">
         Include Tokens
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="include_stickers_${idx}" name="include_stickers_${idx}">
+        Include Stickers
       </label>
       <label class="checkbox-label">
         <input type="checkbox" id="convert_foils_${idx}" name="convert_foils_${idx}" checked>

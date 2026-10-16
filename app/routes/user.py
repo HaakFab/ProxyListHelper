@@ -60,6 +60,7 @@ def moxfield_preview(payload: dict):
             "has_sideboard": bool(data.get("boards", {}).get("sideboard", {}).get("cards")),
             "has_considering": bool(data.get("boards", {}).get("maybeboard", {}).get("cards")),
             "has_tokens": bool(data.get("tokens") or data.get("boards", {}).get("tokens", {}).get("cards")),
+            "has_stickers": bool(data.get("stickers") or data.get("boards", {}).get("stickers", {}).get("cards")),
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -111,6 +112,7 @@ async def submit_decks(
         inc_sideboard = bool(form_data.get(f"include_sideboard_{i}"))
         inc_considering = bool(form_data.get(f"include_considering_{i}"))
         inc_tokens = bool(form_data.get(f"include_tokens_{i}"))
+        inc_stickers = bool(form_data.get(f"include_stickers_{i}"))
         conv_foils = bool(form_data.get(f"convert_foils_{i}", "on"))
         rep_stamps = bool(form_data.get(f"replace_stamps_{i}", "on"))
         rep_date_stamps = bool(form_data.get(f"replace_date_stamps_{i}", "on"))
@@ -126,7 +128,8 @@ async def submit_decks(
                     mox_data,
                     include_sideboard=inc_sideboard,
                     include_considering=inc_considering,
-                    include_tokens=inc_tokens
+                    include_tokens=inc_tokens,
+                    include_stickers=inc_stickers
                 )
                 if not deck_name or deck_name == f"Deck {i+1}":
                     deck_name = fetched_title
@@ -185,6 +188,7 @@ async def submit_decks(
             include_sideboard=inc_sideboard,
             include_considering=inc_considering,
             include_tokens=inc_tokens,
+            include_stickers=inc_stickers,
             convert_foils=conv_foils,
             replace_stamps=rep_stamps,
             replace_date_stamps=rep_date_stamps,

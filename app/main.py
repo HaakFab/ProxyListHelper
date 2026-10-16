@@ -43,7 +43,6 @@ async def global_exception_handler(request: Request, exc: Exception):
             content="""<!DOCTYPE html>
 <html>
 <head>
-  <meta http-equiv="refresh" content="10;url=/?lang=en">
   <title>Order Submitted | ProxyListHelper</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -53,8 +52,8 @@ async def global_exception_handler(request: Request, exc: Exception):
       [ORDER TRANSMISSION CONFIRMED]
     </div>
     <h1 style="font-size: 1.8rem; margin-bottom: 12px; line-height: 1.25;">Order submitted, you can close this window now.</h1>
-    <p style="font-size: 1.1rem; font-weight: 700; margin-bottom: 24px; color: #111111;">You will now be sent back to the starting screen in 10 seconds.</p>
-    <a href="/?lang=en" class="btn btn-primary" style="padding: 12px 24px;">[RETURN TO STARTING SCREEN NOW]</a>
+    <p style="font-size: 1.1rem; font-weight: 700; margin-bottom: 24px; color: #111111;">Your order has been recorded. Click below when you are ready to return to the starting screen.</p>
+    <a href="/?lang=en" class="btn btn-primary" style="padding: 12px 24px;">[RETURN TO STARTING SCREEN]</a>
   </div>
 </body>
 </html>""",

@@ -533,13 +533,52 @@ def test_order_confirm_and_submit_success_rendering(client):
     success_resp = client.get(resolve_resp.headers["location"])
     assert success_resp.status_code == 200
     assert "Order submitted, you can close this window now." in success_resp.text
-    assert "You will now be sent back to the starting screen in 10 seconds." in success_resp.text
-    assert 'meta http-equiv="refresh" content="10;url=/?lang=en"' in success_resp.text
-    assert 'id="countdown-timer"' in success_resp.text
+    assert "Make sure to copy your reference code below" in success_resp.text
+    assert "copyRefCode" in success_resp.text
+    assert "COPY REFERENCE CODE" in success_resp.text
+    assert 'meta http-equiv="refresh"' not in success_resp.text
     assert test_order.reference_code in success_resp.text
     assert "DETAILED REVISIONS LOG" in success_resp.text
     assert "Sol Ring" in success_resp.text
     assert "FOIL REPLACED" in success_resp.text
     assert "data-v1-img=\"https://cards.scryfall.io/v1.jpg\"" in success_resp.text
     assert "data-v2-img=\"https://cards.scryfall.io/v2.jpg\"" in success_resp.text
+
+
+def test_moxfield_include_stickers():
+    from app.moxfield import extract_deck_cards
+
+    mock_deck = {
+        "name": "Stickers Test",
+        "boards": {
+            "mainboard": {
+                "cards": {
+                    "m1": {"quantity": 1, "card": {"name": "Ticketomaton", "set": "unf", "cn": "189"}}
+                }
+            },
+            "stickers": {
+                "cards": {
+                    "s1": {"quantity": 1, "card": {"name": "Ancestral Hot Dog Minotaur", "set": "sunf", "cn": "1"}}
+                }
+            }
+        },
+        "stickers": [
+            {"quantity": 1, "card": {"name": "Carnival Elephant Meteor", "set": "sunf", "cn": "2"}}
+        ]
+    }
+
+    # Without stickers
+    _, without_stk = extract_deck_cards(mock_deck, include_stickers=False)
+    names_without = [c["name"] for c in without_stk]
+    assert "Ticketomaton" in names_without
+    assert "Ancestral Hot Dog Minotaur" not in names_without
+    assert "Carnival Elephant Meteor" not in names_without
+
+    # With stickers
+    _, with_stk = extract_deck_cards(mock_deck, include_stickers=True)
+    names_with = [c["name"] for c in with_stk]
+    assert "Ticketomaton" in names_with
+    assert "Ancestral Hot Dog Minotaur" in names_with
+    assert "Carnival Elephant Meteor" in names_with
+
 

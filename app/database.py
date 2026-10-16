@@ -38,6 +38,7 @@ def init_db():
         from sqlalchemy import text
         for col_stmt in [
             "ALTER TABLE decks ADD COLUMN include_tokens BOOLEAN DEFAULT 0 NOT NULL",
+            "ALTER TABLE decks ADD COLUMN include_stickers BOOLEAN DEFAULT 0 NOT NULL",
             "ALTER TABLE decks ADD COLUMN replace_date_stamps BOOLEAN DEFAULT 1 NOT NULL",
             "ALTER TABLE decks ADD COLUMN replace_digital BOOLEAN DEFAULT 1 NOT NULL",
         ]:

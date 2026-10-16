@@ -49,7 +49,8 @@ def extract_deck_cards(
     deck_data: dict,
     include_sideboard: bool = False,
     include_considering: bool = False,
-    include_tokens: bool = False
+    include_tokens: bool = False,
+    include_stickers: bool = False
 ) -> Tuple[str, List[dict]]:
     """
     Extracts cards from Moxfield deck JSON according to options.
@@ -143,6 +144,45 @@ def extract_deck_cards(
                     "promo_types": tok.get("promo_types", []) or [],
                     "board": "tokens",
                 })
+
+    # Include Stickers if selected
+    if include_stickers:
+        seen_stickers = set()
+        # 1. From boards.stickers
+        board_stickers = boards.get("stickers", {}).get("cards", {})
+        for item in board_stickers.values():
+            card_info = item.get("card", {})
+            key = (card_info.get("name"), card_info.get("set", "").lower(), str(card_info.get("cn", "")))
+            seen_stickers.add(key)
+            extracted_cards.append({
+                "qty": int(item.get("quantity", 1)),
+                "name": card_info.get("name", ""),
+                "set": card_info.get("set", "").lower(),
+                "cn": str(card_info.get("cn", "")).strip(),
+                "is_foil": False,
+                "promo_types": card_info.get("promo_types", []) or [],
+                "board": "stickers",
+            })
+
+        # 2. From deck_data.stickers list (if present)
+        for st in deck_data.get("stickers", []):
+            if isinstance(st, dict):
+                card_obj = st.get("card", st)
+                name = card_obj.get("name", "")
+                set_code = (card_obj.get("set") or "").lower()
+                cn = str(card_obj.get("cn") or card_obj.get("collector_number") or "").strip()
+                key = (name, set_code, cn)
+                if key not in seen_stickers and name:
+                    seen_stickers.add(key)
+                    extracted_cards.append({
+                        "qty": int(st.get("quantity", 1)),
+                        "name": name,
+                        "set": set_code,
+                        "cn": cn,
+                        "is_foil": False,
+                        "promo_types": card_obj.get("promo_types", []) or [],
+                        "board": "stickers",
+                    })
 
     return deck_name, extracted_cards
 
