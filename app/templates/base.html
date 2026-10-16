@@ -9,6 +9,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
+  <script>
+    (function() {
+      try {
+        const theme = localStorage.getItem('theme');
+        if (theme === 'void') {
+          document.documentElement.classList.add('dark-void');
+        }
+      } catch (e) {}
+    })();
+  </script>
   {% block extra_head %}{% endblock %}
 </head>
 <body class="cutting-mat-workspace">
@@ -25,6 +35,11 @@
       </a>
 
       <div class="nav-actions">
+        <!-- Ultra Meme-Tier Void Dark Mode Button -->
+        <button type="button" id="darkmode-toggle" class="darkmode-btn" onclick="toggleDarkMode()" title="{{ t('darkmode_tooltip') }}">
+          <span id="darkmode-state-tag">{{ t('darkmode_toggle_void') }}</span>
+        </button>
+
         <div class="lang-switch">
           <a href="?lang=en" class="lang-btn {% if lang == 'en' %}active{% endif %}">[EN]</a>
           <a href="?lang=de" class="lang-btn {% if lang == 'de' %}active{% endif %}">[DE]</a>

@@ -840,5 +840,37 @@ window.setVersionFilter = setVersionFilter;
 window.filterCardVersions = filterCardVersions;
 window.replaceTheReplacement = replaceTheReplacement;
 
+// ==========================================
+// Meme-Tier Ultra Dark Void Mode
+// ==========================================
+
+function toggleDarkMode() {
+  const isVoid = document.documentElement.classList.toggle('dark-void');
+  try {
+    localStorage.setItem('theme', isVoid ? 'void' : 'paper');
+  } catch (e) {}
+  updateDarkModeButton();
+}
+
+function updateDarkModeButton() {
+  const tag = document.getElementById('darkmode-state-tag');
+  const btn = document.getElementById('darkmode-toggle');
+  const isVoid = document.documentElement.classList.contains('dark-void');
+  if (tag) {
+    tag.textContent = isVoid ? '[⚡ VOID: MAX DARK]' : '[🌑 VOID]';
+  }
+  if (btn) {
+    btn.setAttribute('aria-pressed', isVoid ? 'true' : 'false');
+    btn.title = isVoid 
+      ? 'Extreme Void Dark Mode Active. Click to return to Paper mode.'
+      : 'Activate Extreme Pitch-Black Void Dark Mode.';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', updateDarkModeButton);
+window.toggleDarkMode = toggleDarkMode;
+window.updateDarkModeButton = updateDarkModeButton;
+
+
 
 
