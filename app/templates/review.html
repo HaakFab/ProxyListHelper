@@ -96,7 +96,7 @@
                    data-v2-label="{{ item.fixed_version_label or item.fixed_line }}"
                    data-reason="{{ item.message }}">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <span class="badge badge-yellow" style="font-size: 0.68rem;">{{ item.category.replace('_', ' ') }}</span>
+                  <span class="badge badge-yellow" style="font-size: 0.68rem;">{{ (item.category or 'MODIFIED').replace('_', ' ') }}</span>
                   <strong style="font-family: var(--font-mono);">{{ item.qty }}x {{ item.name }}</strong>
                 </div>
                 <div class="compare-chips">

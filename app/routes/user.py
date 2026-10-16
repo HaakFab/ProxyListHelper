@@ -279,6 +279,8 @@ async def resolve_review_issues(
         for idx, item in enumerate(diagnostics):
             status = item.get("status")
             action = form_data.get(f"action_{deck.id}_{idx}", "substitute")
+            qty = int(item.get("qty", 1))
+            name = item.get("name", "")
             
             if status == "RED":
                 if action == "drop":
@@ -289,21 +291,24 @@ async def resolve_review_issues(
                     # Use suggested paper replacement
                     item["set"] = item["suggested_set"]
                     item["cn"] = item["suggested_cn"]
-                    line = format_card_line(item["qty"], item["name"], item["set"], item["cn"],
+                    line = format_card_line(qty, name, item["set"], item["cn"],
                                             item.get("back_name"), item.get("back_set"), item.get("back_cn"))
                     final_lines.append(line)
-                    deck_card_count += item["qty"]
+                    deck_card_count += qty
                 else:
                     # Keep original line
-                    line = format_card_line(item["qty"], item["name"], item["set"], item["cn"],
+                    line = format_card_line(qty, name, item.get("set"), item.get("cn"),
                                             item.get("back_name"), item.get("back_set"), item.get("back_cn"))
                     final_lines.append(line)
-                    deck_card_count += item["qty"]
+                    deck_card_count += qty
             else:
                 # Green or Yellow
                 line = item.get("fixed_line") or item.get("original_line")
-                final_lines.append(line)
-                deck_card_count += item["qty"]
+                if not line:
+                    line = format_card_line(qty, name, item.get("set"), item.get("cn"),
+                                            item.get("back_name"), item.get("back_set"), item.get("back_cn"))
+                final_lines.append(str(line))
+                deck_card_count += qty
                 
         deck.converted_text = "\n".join(final_lines) + "\n"
         deck.card_count = deck_card_count
@@ -341,7 +346,7 @@ def success_page(request: Request, order_id: str, lang: str = "en", db: Session 
             diag = json.loads(d.diagnostics_json or "[]")
             yellows = [i for i in diag if i.get("status") == "YELLOW" or i.get("can_autofix") or i.get("category") in ("FOIL_REPLACED", "STAMP_REPLACED", "DATE_STAMP_REPLACED", "ALCHEMY_REPLACED", "DIGITAL_REPLACED")]
             if yellows:
-                deck_changes.append({"deck": d, "items": yellows})
+                deck_changes.append({"deck": d, "changes": yellows, "items": yellows})
         except Exception:
             pass
 

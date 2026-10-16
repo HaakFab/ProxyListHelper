@@ -77,7 +77,7 @@
           <div style="font-family: var(--font-mono); font-size: 0.8rem; font-weight: 800; color: var(--text-dark); margin-bottom: 6px; text-transform: uppercase;">
             // {{ group.deck.name }}
           </div>
-          {% for item in group.items %}
+          {% for item in group.changes %}
             <div class="change-item-row has-card-hover"
                  data-v1-img="{{ item.original_image_url or '' }}"
                  data-v2-img="{{ item.fixed_image_url or '' }}"
@@ -85,7 +85,7 @@
                  data-v2-label="{{ item.fixed_version_label or item.fixed_line }}"
                  data-reason="{{ item.message }}">
               <div style="display: flex; align-items: center; gap: 10px;">
-                <span class="badge badge-yellow" style="font-size: 0.68rem;">{{ item.category.replace('_', ' ') }}</span>
+                <span class="badge badge-yellow" style="font-size: 0.68rem;">{{ (item.category or 'MODIFIED').replace('_', ' ') }}</span>
                 <strong style="font-family: var(--font-mono);">{{ item.qty }}x {{ item.name }}</strong>
               </div>
               <div class="compare-chips">

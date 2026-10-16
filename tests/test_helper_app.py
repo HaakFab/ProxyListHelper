@@ -12,10 +12,33 @@ from app.moxfield import extract_deck_cards, parse_deck_id, parse_pasted_text
 from app.pricing import compute_total_cents, format_cents_eur
 from proxy_parser.deck_parser import parse_moxfield_file
 
+import os
+import tempfile
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.database import Base, get_db
+
 @pytest.fixture(autouse=True)
-def setup_test_db():
-    init_db()
+def setup_test_db(tmp_path):
+    test_db_path = tmp_path / "test_isolated.db"
+    test_engine = create_engine(
+        f"sqlite:///{test_db_path}",
+        connect_args={"check_same_thread": False}
+    )
+    Base.metadata.create_all(bind=test_engine)
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+    def override_get_db():
+        db = TestingSessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
     yield
+    app.dependency_overrides.clear()
+    test_engine.dispose()
 
 @pytest.fixture
 def client():
@@ -259,9 +282,8 @@ def test_alchemy_rebalanced_card_conversion():
 def test_admin_new_order_cycle(client):
     import uuid
     from app.models import Order, Deck
-    from app.database import get_db
-
-    db = next(get_db())
+    db_gen = app.dependency_overrides.get(get_db, get_db)
+    db = next(db_gen())
     unique_id = uuid.uuid4().hex[:8]
     test_order = Order(
         order_id=f"test_ord_{unique_id}",
@@ -447,3 +469,73 @@ def test_find_clean_paper_fallback_query_encoding():
         # Verify query is properly URL-encoded and has no raw quotes
         assert '"' not in captured_urls[0]
         assert "%22" in captured_urls[0] or "%21" in captured_urls[0]
+
+
+def test_order_confirm_and_submit_success_rendering(client):
+    import uuid
+    from app.models import Order, Deck
+    db_gen = app.dependency_overrides.get(get_db, get_db)
+    db = next(db_gen())
+    unique_id = uuid.uuid4().hex[:8]
+    test_order = Order(
+        order_id=f"order_{unique_id}",
+        submitter_name="Test Submitter",
+        reference_code=f"REF-{unique_id}",
+        total_lists=1,
+        total_cards=1,
+        total_price_cents=100,
+        price_per_card_cents=13,
+        price_per_list_cents=26,
+        order_fee_cents=100,
+        status="REVIEW"
+    )
+    db.add(test_order)
+    db.commit()
+
+    diag = [{
+        "status": "YELLOW",
+        "category": "FOIL_REPLACED",
+        "name": "Sol Ring",
+        "qty": 1,
+        "set": "cmm",
+        "cn": "401",
+        "message": "Foil replaced with non-foil",
+        "original_line": "1 Sol Ring (CMM) 401 *F*",
+        "fixed_line": "1 Sol Ring (CMM) 401",
+        "original_version_label": "CMM #401 (Foil)",
+        "fixed_version_label": "CMM #401 (Non-foil)",
+        "original_image_url": "https://cards.scryfall.io/v1.jpg",
+        "fixed_image_url": "https://cards.scryfall.io/v2.jpg"
+    }]
+
+    test_deck = Deck(
+        order_id=test_order.id,
+        name="Test Deck",
+        card_count=1,
+        raw_text="1 Sol Ring (CMM) 401 *F*",
+        converted_text="1 Sol Ring (CMM) 401",
+        diagnostics_json=json.dumps(diag),
+        status="REVIEW"
+    )
+    db.add(test_deck)
+    db.commit()
+
+    # Step 1: POST to /review/{order_id}/resolve (Confirm and submit)
+    resolve_resp = client.post(
+        f"/review/{test_order.order_id}/resolve",
+        data={"ui_lang": "en"},
+        follow_redirects=False
+    )
+    assert resolve_resp.status_code == 303
+    assert f"/success/{test_order.order_id}" in resolve_resp.headers["location"]
+
+    # Step 2: GET /success/{order_id}
+    success_resp = client.get(resolve_resp.headers["location"])
+    assert success_resp.status_code == 200
+    assert test_order.reference_code in success_resp.text
+    assert "DETAILED REVISIONS LOG" in success_resp.text
+    assert "Sol Ring" in success_resp.text
+    assert "FOIL REPLACED" in success_resp.text
+    assert "data-v1-img=\"https://cards.scryfall.io/v1.jpg\"" in success_resp.text
+    assert "data-v2-img=\"https://cards.scryfall.io/v2.jpg\"" in success_resp.text
+
