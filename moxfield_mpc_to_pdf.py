@@ -20,6 +20,7 @@ from proxy_parser import (
     get_torch_device,
     redact_copyright,
     add_intelligent_bleed,
+    process_custom_cardback,
     generate_divider_card,
     generate_divider_cards,
     GDriveManager,
@@ -385,6 +386,15 @@ def run_pipeline(
         progress.update(fetch_task, completed=len(unique_cards), description="[green]Scryfall data verified.")
 
         # Step B: Upscale & Bleed processing
+        target_dpi = 600 if config.mode == "upscaled" else 300
+        effective_default_back = config.default_cardback
+        if os.path.exists(config.default_cardback) and config.default_cardback != os.path.join("backs", "proxy1.jpg"):
+            def_hash = hashlib.md5(config.default_cardback.encode()).hexdigest()[:8]
+            processed_def = os.path.join(config.cache_dir, f"default_back_{def_hash}_bleed.jpg")
+            if not os.path.exists(processed_def) or config.reset_bleed_cache:
+                process_custom_cardback(config.default_cardback, processed_def, config, dpi=target_dpi, upscaler=upscaler)
+            effective_default_back = processed_def
+
         process_task = progress.add_task(
             f"[yellow]Processing card assets ({config.mode})...",
             total=len(unique_cards)
@@ -403,7 +413,7 @@ def run_pipeline(
                 scryfall_client=scryfall_client,
                 upscaler=upscaler,
                 config=config,
-                default_back=config.default_cardback,
+                default_back=effective_default_back,
                 gdrive=gdrive
             )
             card_assets[key] = (front_path, back_path)
@@ -419,7 +429,6 @@ def run_pipeline(
         progress.update(process_task, description=f"[green]All {len(unique_cards)} card assets ready.")
 
         # Step C: Prepare Decks and Dividers
-        target_dpi = 600 if config.mode == "upscaled" else 300
         deck_items = []
         unprintable: List[Tuple[str, str, CardEntry]] = []
 
@@ -458,7 +467,13 @@ def run_pipeline(
                 back_hash = hashlib.md5(deck.custom_cardback.encode()).hexdigest()[:8]
                 cback_bleed = os.path.join(config.cache_dir, f"custom_back_{back_hash}_bleed.jpg")
                 if not os.path.exists(cback_bleed) or config.reset_bleed_cache:
-                    add_intelligent_bleed(deck.custom_cardback, cback_bleed, config, dpi=target_dpi)
+                    process_custom_cardback(
+                        deck.custom_cardback,
+                        cback_bleed,
+                        config,
+                        dpi=target_dpi,
+                        upscaler=upscaler
+                    )
                 deck_custom_back_bleed = cback_bleed
 
             for card in deck.cards:
@@ -482,7 +497,7 @@ def run_pipeline(
                 if pair and pair[0]:
                     front_p, back_p = pair
                     # If this single-faced card uses default back and this deck has a custom back, use it!
-                    if deck_custom_back_bleed and back_p == config.default_cardback:
+                    if deck_custom_back_bleed and (back_p == config.default_cardback or back_p == effective_default_back):
                         final_pair = (front_p, deck_custom_back_bleed)
                     else:
                         final_pair = pair

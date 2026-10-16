@@ -100,7 +100,13 @@ def parse_moxfield_file(file_path: str) -> Deck:
             clean = line.strip()
             if not clean:
                 continue
-            if clean.lower().startswith("// language:") or clean.lower().startswith("# language:"):
+            clean_lower = clean.lower()
+            if any(clean_lower.startswith(p) for p in [
+                "// language:", "# language:",
+                "// preferred language:", "# preferred language:",
+                "// preferred_language:", "# preferred_language:",
+                "// lang:", "# lang:"
+            ]):
                 preferred_language = clean.split(":", 1)[1].strip().lower()
                 continue
             if is_section_header(clean):

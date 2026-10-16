@@ -253,3 +253,100 @@ def add_intelligent_bleed(
             img.close()
 
     return output_path
+
+def process_custom_cardback(
+    cardback_src: Any,
+    output_path: str,
+    config: AppConfig,
+    dpi: int = 300,
+    upscaler: Optional[Any] = None
+) -> str:
+    """
+    Normalizes, scales, and extends an arbitrary custom cardback image for print:
+    1. Orientation: Automatically rotates landscape images (width > height) to portrait.
+    2. Aspect Ratio & Crop: Center-crops non-standard aspect ratios to the standard card ratio
+       so the card art is never stretched or distorted.
+    3. Resolution & Scaling:
+       - Upscales low-resolution images to match target print DPI (using Real-ESRGAN if available, else Lanczos).
+       - Downscales excessively large images to match target print DPI without losing fidelity or inflating PDF size.
+    4. Bleed Handling:
+       - Detects if image already has MPC-ready bleed (target ~69x94mm aspect ratio).
+       - If not, intelligently extends borders/art using add_intelligent_bleed to ensure
+         safe cut-margins during guillotine cutting.
+    """
+    close_img = False
+    if isinstance(cardback_src, str):
+        img = Image.open(cardback_src)
+        close_img = True
+    elif isinstance(cardback_src, Image.Image):
+        img = cardback_src
+    else:
+        img = Image.fromarray(cardback_src)
+
+    try:
+        img = img.convert("RGB")
+
+        # 1. Orientation: Ensure portrait
+        if img.width > img.height:
+            img = img.rotate(90, expand=True)
+
+        target_w_px = int(round((config.target_card_width_mm / 25.4) * dpi))
+        target_h_px = int(round((config.target_card_height_mm / 25.4) * dpi))
+        cut_w_px = int(round((config.cut_width_mm / 25.4) * dpi))
+        cut_h_px = int(round((config.cut_height_mm / 25.4) * dpi))
+
+        target_cut_ratio = config.cut_width_mm / config.cut_height_mm
+        target_bleed_ratio = config.target_card_width_mm / config.target_card_height_mm
+
+        current_ratio = img.width / img.height
+
+        # Check if the image is already MPC-ready with full bleed included
+        is_already_bled = abs(current_ratio - target_bleed_ratio) < 0.02
+
+        if is_already_bled:
+            # Image already includes bleed: scale directly to target_w_px x target_h_px
+            if img.width < target_w_px:
+                if upscaler is not None and getattr(config, "mode", "") == "upscaled":
+                    try:
+                        img = upscaler.predict(img)
+                    except Exception:
+                        pass
+            if img.size != (target_w_px, target_h_px):
+                img = img.resize((target_w_px, target_h_px), Image.Resampling.LANCZOS)
+
+            os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+            img.save(output_path, "JPEG", dpi=(dpi, dpi), quality=95)
+            return output_path
+
+        # 2. Image does not have bleed yet: center-crop to standard cut aspect ratio (63:88)
+        if current_ratio > target_cut_ratio:
+            # Too wide: crop left & right
+            new_w = int(round(img.height * target_cut_ratio))
+            left = (img.width - new_w) // 2
+            img = img.crop((left, 0, left + new_w, img.height))
+        elif current_ratio < target_cut_ratio:
+            # Too tall: crop top & bottom
+            new_h = int(round(img.width / target_cut_ratio))
+            top = (img.height - new_h) // 2
+            img = img.crop((0, top, img.width, top + new_h))
+
+        # 3. Resolution scaling
+        if img.width < cut_w_px:
+            if upscaler is not None and getattr(config, "mode", "") == "upscaled":
+                try:
+                    img = upscaler.predict(img)
+                except Exception:
+                    pass
+            if img.size != (cut_w_px, cut_h_px):
+                img = img.resize((cut_w_px, cut_h_px), Image.Resampling.LANCZOS)
+        elif img.width > int(cut_w_px * 1.4):
+            # Downscale overly high-res images to exact cut dimensions
+            img = img.resize((cut_w_px, cut_h_px), Image.Resampling.LANCZOS)
+
+        # 4. Add intelligent bleed to expand to target_w_px x target_h_px
+        return add_intelligent_bleed(img, output_path, config, dpi=dpi)
+
+    finally:
+        if close_img:
+            img.close()
+
