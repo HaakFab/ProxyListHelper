@@ -50,6 +50,10 @@
     </form>
     {% endif %}
 
+    {% if o.state == "PAID" %}
+    <p style="color: #047857; font-weight: 700; margin-top: 0.5rem; font-size: 0.9rem;">✓ Status: Bezahlt (Zahlung vollständig erfasst)</p>
+    {% endif %}
+
     <div style="margin-top:0.5rem;">
       {% if o.state in ("LOCKED", "PARTIALLY_PAID", "PAID", "FROZEN") %}
       <form method="post" action="/admin/orders/{{ o.id }}/unlock" style="display:inline">

@@ -126,7 +126,7 @@
         </thead>
         <tbody>
           {% for o in orders %}
-          <tr>
+          <tr class="{% if o.status == 'PAID' %}order-row-paid{% endif %}" style="{% if o.status == 'PAID' %}background: rgba(204, 255, 0, 0.05);{% endif %}">
             <td>
               <strong style="font-family: var(--font-mono);">{{ o.submitter_name }}</strong>
               <div style="font-size: 0.72rem; color: #666;">{{ o.created_at.strftime('%b %d, %H:%M') }}</div>
@@ -141,21 +141,23 @@
             <td style="font-weight: 800;">{{ format_cents(o.total_price_cents) }}</td>
             <td>
               {% if o.status == "PAID" %}
-                <span class="badge badge-green">[PAID]</span>
+                <span class="badge badge-green" style="background: var(--accent-acid); color: var(--text-dark); font-weight: 800; border: 2px solid var(--border-ink);">[PAID]</span>
               {% else %}
-                <span class="badge badge-yellow">[READY]</span>
+                <span class="badge badge-yellow" style="background: #FFE600; color: var(--text-dark); font-weight: 800; border: 2px solid var(--border-ink);">[UNPAID]</span>
               {% endif %}
             </td>
             <td>
-              <div style="display: flex; gap: 6px; align-items: center;">
+              <div style="display: flex; gap: 8px; align-items: center;">
                 <form action="/admin/order/{{ o.order_id }}/toggle-paid" method="POST" style="display: inline;">
-                  <button type="submit" class="btn btn-secondary" style="font-size: 0.72rem; padding: 4px 8px;">
-                    {% if o.status == "PAID" %}[MARK UNPAID]{% else %}[✓ MARK PAID]{% endif %}
+                  <input type="hidden" name="lang" value="{{ lang }}">
+                  <button type="submit" class="btn {% if o.status == 'PAID' %}btn-secondary{% else %}btn-primary{% endif %}" style="font-size: 0.74rem; padding: 5px 10px; font-weight: 700; cursor: pointer;">
+                    {% if o.status == "PAID" %}[MARK UNPAID]{% else %}[✓ MARK AS PAID]{% endif %}
                   </button>
                 </form>
-                <form action="/admin/order/{{ o.order_id }}/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this submission?');">
-                  <button type="submit" class="btn btn-danger" style="font-size: 0.72rem; padding: 4px 8px;">
-                    [✕]
+                <form action="/admin/order/{{ o.order_id }}/delete" method="POST" style="display: inline;" onsubmit="return confirm('⚠️ Delete submission for {{ o.submitter_name }} ({{ o.reference_code }})? This cannot be undone.');">
+                  <input type="hidden" name="lang" value="{{ lang }}">
+                  <button type="submit" class="btn btn-danger" style="font-size: 0.74rem; padding: 5px 8px; font-weight: 700; cursor: pointer;" title="Delete submission">
+                    [✕ DELETE]
                   </button>
                 </form>
               </div>

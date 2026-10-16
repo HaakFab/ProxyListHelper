@@ -128,6 +128,7 @@ def delete_order(
     if order:
         db.delete(order)
         db.commit()
+    return RedirectResponse(url=f"/admin?lang={lang}", status_code=303)
 @router.post("/cycle/new")
 def start_new_order_cycle(
     admin_session: Optional[str] = Cookie(None),

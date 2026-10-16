@@ -325,7 +325,7 @@ def orders_list(request: Request, admin: User = Depends(require_admin), session:
         orders = (
             session.query(Order)
             .filter(Order.round_id == round_.id)
-            .order_by(Order.state.asc(), Order.id.asc())
+            .order_by(Order.id.asc())
             .all()
         )
     balances = {o.id: balance_cents(o.price_snapshot.total_cents, [p.amount_cents for p in o.payments])

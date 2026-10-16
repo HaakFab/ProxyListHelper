@@ -582,3 +582,82 @@ def test_moxfield_include_stickers():
     assert "Carnival Elephant Meteor" in names_with
 
 
+def test_admin_toggle_paid_and_delete(client):
+    from app.models import Order
+    from app.database import get_db
+
+    db = next(app.dependency_overrides[get_db]())
+    order = Order(
+        order_id="test_admin_pay_toggle",
+        submitter_name="Bob Admin Test",
+        reference_code="REF-BOB123",
+        status="SUBMITTED",
+        total_cards=60,
+        total_lists=1,
+        total_price_cents=806,
+        price_per_card_cents=13,
+        price_per_list_cents=26,
+        order_fee_cents=0,
+    )
+    db.add(order)
+    db.commit()
+
+    # Set admin session cookie
+    client.cookies.set("admin_session", settings.admin_password)
+
+    # 1. Initial dashboard view: Order is visible and marked [UNPAID]
+    dash_init = client.get("/admin?lang=en")
+    assert dash_init.status_code == 200
+    assert "Bob Admin Test" in dash_init.text
+    assert "REF-BOB123" in dash_init.text
+    assert "[UNPAID]" in dash_init.text
+    assert "[✓ MARK AS PAID]" in dash_init.text
+
+    # 2. Toggle paid: POST to /admin/order/{order_id}/toggle-paid
+    toggle_resp = client.post(
+        f"/admin/order/{order.order_id}/toggle-paid",
+        data={"lang": "en"},
+        follow_redirects=False
+    )
+    assert toggle_resp.status_code == 303
+    assert "/admin?lang=en" in toggle_resp.headers["location"]
+
+    # 3. Follow redirect: Order MUST NOT disappear! It must switch to [PAID]
+    dash_after_paid = client.get(toggle_resp.headers["location"])
+    assert dash_after_paid.status_code == 200
+    assert "Bob Admin Test" in dash_after_paid.text
+    assert "REF-BOB123" in dash_after_paid.text
+    assert "[PAID]" in dash_after_paid.text
+    assert "[MARK UNPAID]" in dash_after_paid.text
+
+    # 4. Verify DB status is updated to PAID
+    db.refresh(order)
+    assert order.status == "PAID"
+
+    # 5. Toggle again: Switches back to SUBMITTED
+    toggle_back = client.post(
+        f"/admin/order/{order.order_id}/toggle-paid",
+        data={"lang": "en"},
+        follow_redirects=False
+    )
+    assert toggle_back.status_code == 303
+    db.refresh(order)
+    assert order.status == "SUBMITTED"
+
+    dash_unpaid = client.get("/admin?lang=en")
+    assert "[UNPAID]" in dash_unpaid.text
+
+    # 6. Delete order: Redirects properly to /admin and deletes order
+    delete_resp = client.post(
+        f"/admin/order/{order.order_id}/delete",
+        data={"lang": "en"},
+        follow_redirects=False
+    )
+    assert delete_resp.status_code == 303
+    assert "/admin?lang=en" in delete_resp.headers["location"]
+
+    dash_after_del = client.get("/admin?lang=en")
+    assert "REF-BOB123" not in dash_after_del.text
+
+
+
