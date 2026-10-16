@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .config import settings
-from .database import Base, engine
+from .database import Base, engine, init_db
 from .routes import admin, user
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -13,8 +13,8 @@ os.makedirs(STATIC_DIR, exist_ok=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create DB tables if they don't exist
-    Base.metadata.create_all(bind=engine)
+    # Create DB tables and run any safe column migrations
+    init_db()
     yield
 
 app = FastAPI(

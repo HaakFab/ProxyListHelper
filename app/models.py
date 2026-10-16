@@ -48,6 +48,7 @@ class Deck(Base):
     preferred_language = Column(String(8), default="en", nullable=False)
     include_sideboard = Column(Boolean, default=False, nullable=False)
     include_considering = Column(Boolean, default=False, nullable=False)
+    include_tokens = Column(Boolean, default=False, nullable=False)
     convert_foils = Column(Boolean, default=True, nullable=False)
     replace_stamps = Column(Boolean, default=True, nullable=False)
     

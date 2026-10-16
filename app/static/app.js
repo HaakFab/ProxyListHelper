@@ -67,6 +67,10 @@ function handleMoxfieldInput(deckIndex) {
       if (data.has_sideboard && sideboardCheckbox) {
         sideboardCheckbox.parentElement.style.fontWeight = '600';
       }
+      const tokenCheckbox = document.getElementById(`include_tokens_${deckIndex}`);
+      if (data.has_tokens && tokenCheckbox) {
+        tokenCheckbox.parentElement.style.fontWeight = '600';
+      }
     } else {
       if (statusBadge) {
         statusBadge.className = 'badge badge-red';
@@ -176,6 +180,10 @@ function addDeckForm() {
         Include Considering
       </label>
       <label class="checkbox-label">
+        <input type="checkbox" id="include_tokens_${idx}" name="include_tokens_${idx}">
+        Include Tokens
+      </label>
+      <label class="checkbox-label">
         <input type="checkbox" id="convert_foils_${idx}" name="convert_foils_${idx}" checked>
         Convert Foil-only to Non-foil Paper
       </label>
@@ -210,3 +218,106 @@ function removeDeckForm(idx) {
     deckCard.remove();
   }
 }
+
+// Form Submission & Animated Progress Modal
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('submit-form');
+  if (!form) return;
+
+  form.addEventListener('submit', (e) => {
+    // 1. Validate submitter name
+    const nameInput = document.getElementById('submitter_name');
+    if (!nameInput || !nameInput.value.trim()) {
+      e.preventDefault();
+      if (nameInput) {
+        nameInput.focus();
+        nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      alert('Please enter your name.');
+      return;
+    }
+
+    // 2. Validate that at least one deck has input
+    let hasAnyDeckContent = false;
+    const count = parseInt(document.getElementById('deck_count')?.value || '1', 10);
+    for (let i = 0; i < count; i++) {
+      const card = document.getElementById(`deck-card-${i}`);
+      if (!card) continue;
+      const urlInput = document.getElementById(`moxfield_url_${i}`);
+      const textInput = document.getElementById(`raw_text_${i}`);
+      const sourceInput = card.querySelector(`input[name="source_type_${i}"]`);
+      const srcType = sourceInput ? sourceInput.value : 'url';
+
+      if (srcType === 'url' && urlInput && urlInput.value.trim()) {
+        hasAnyDeckContent = true;
+        break;
+      } else if (srcType === 'text' && textInput && textInput.value.trim()) {
+        hasAnyDeckContent = true;
+        break;
+      } else if ((urlInput && urlInput.value.trim()) || (textInput && textInput.value.trim())) {
+        hasAnyDeckContent = true;
+        break;
+      }
+    }
+
+    if (!hasAnyDeckContent) {
+      e.preventDefault();
+      alert('Please enter at least one Moxfield deck URL or paste deck text before converting.');
+      return;
+    }
+
+    // 3. Show the Processing Progress Modal
+    const modal = document.getElementById('processing-modal');
+    const submitBtn = document.getElementById('submit-btn');
+    if (modal) {
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+    }
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.7';
+      submitBtn.textContent = '⏳ Processing...';
+    }
+
+    // 4. Animate progress bar & steps
+    startProgressAnimation();
+  });
+});
+
+function startProgressAnimation() {
+  const fill = document.getElementById('progress-fill');
+  const percentText = document.getElementById('progress-percent');
+  const statusText = document.getElementById('progress-status-text');
+  
+  const step1 = document.getElementById('step-1');
+  const step2 = document.getElementById('step-2');
+  const step3 = document.getElementById('step-3');
+  const step4 = document.getElementById('step-4');
+
+  let currentPercent = 12;
+  if (fill) fill.style.width = `${currentPercent}%`;
+  if (percentText) percentText.textContent = `${currentPercent}%`;
+
+  const timeline = [
+    { at: 500, pct: 32, stepActive: step1, text: step1?.querySelector('.step-label')?.textContent },
+    { at: 1200, pct: 60, stepDone: step1, stepActive: step2, text: step2?.querySelector('.step-label')?.textContent },
+    { at: 2200, pct: 85, stepDone: step2, stepActive: step3, text: step3?.querySelector('.step-label')?.textContent },
+    { at: 3200, pct: 95, stepDone: step3, stepActive: step4, text: step4?.querySelector('.step-label')?.textContent },
+  ];
+
+  timeline.forEach(item => {
+    setTimeout(() => {
+      if (fill) fill.style.width = `${item.pct}%`;
+      if (percentText) percentText.textContent = `${item.pct}%`;
+      if (item.text && statusText) statusText.textContent = item.text;
+      if (item.stepDone) {
+        item.stepDone.classList.remove('active');
+        item.stepDone.classList.add('done');
+      }
+      if (item.stepActive) {
+        item.stepActive.classList.add('active');
+      }
+    }, item.at);
+  });
+}
+

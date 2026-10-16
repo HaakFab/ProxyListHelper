@@ -4,8 +4,9 @@ import os
 import re
 import time
 import urllib.request
+import urllib.parse
 import urllib.error
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 SCRYFALL_HEADERS = {
     "User-Agent": "ProxyListHelper/1.0 (https://github.com/HaakFab/ProxyListHelper)",
@@ -14,6 +15,63 @@ SCRYFALL_HEADERS = {
 
 # In-memory session cache to avoid redundant hits
 _CACHE: Dict[str, dict] = {}
+
+def preload_cards_batch(cards: List[dict]):
+    """
+    Batches Scryfall card lookups using the /cards/collection endpoint (up to 75 cards per batch).
+    Populates _CACHE so subsequent lookups are instant.
+    """
+    identifiers = []
+    seen = set()
+    for c in cards:
+        s = (c.get("set") or "").lower().strip()
+        cn = str(c.get("cn") or "").lower().strip()
+        name = (c.get("name") or "").strip()
+        if s and cn:
+            key = (s, cn)
+            if key not in seen:
+                seen.add(key)
+                identifiers.append({"set": s, "collector_number": cn})
+        elif name:
+            clean_name = name.split(" // ")[0].strip()
+            key = ("name", clean_name.lower())
+            if key not in seen:
+                seen.add(key)
+                identifiers.append({"name": clean_name})
+
+    if not identifiers:
+        return
+
+    chunk_size = 75
+    for i in range(0, len(identifiers), chunk_size):
+        chunk = identifiers[i:i + chunk_size]
+        payload = json.dumps({"identifiers": chunk}).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.scryfall.com/cards/collection",
+            data=payload,
+            headers={**SCRYFALL_HEADERS, "Content-Type": "application/json"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                for card in data.get("data", []):
+                    c_set = card.get("set", "").lower()
+                    c_cn = str(card.get("collector_number", "")).lower()
+                    if c_set and c_cn:
+                        _CACHE[f"https://api.scryfall.com/cards/{c_set}/{c_cn}"] = card
+                    c_name = card.get("name", "").split(" // ")[0].strip()
+                    if c_name:
+                        _CACHE[f"https://api.scryfall.com/cards/named?exact={urllib.parse.quote(c_name)}"] = card
+                for nf in data.get("not_found", []):
+                    nf_set = nf.get("set", "").lower()
+                    nf_cn = str(nf.get("collector_number", "")).lower()
+                    if nf_set and nf_cn:
+                        _CACHE[f"https://api.scryfall.com/cards/{nf_set}/{nf_cn}"] = None
+                    if "name" in nf:
+                        _CACHE[f"https://api.scryfall.com/cards/named?exact={urllib.parse.quote(nf['name'])}"] = None
+        except Exception:
+            pass
+
 
 def _scryfall_get(url: str) -> Optional[dict]:
     if url in _CACHE:

@@ -32,9 +32,20 @@ if db_url.startswith("sqlite"):
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+def init_db():
+    Base.metadata.create_all(bind=engine)
+    with engine.connect() as conn:
+        try:
+            from sqlalchemy import text
+            conn.execute(text("ALTER TABLE decks ADD COLUMN include_tokens BOOLEAN DEFAULT 0 NOT NULL"))
+            conn.commit()
+        except Exception:
+            pass
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+

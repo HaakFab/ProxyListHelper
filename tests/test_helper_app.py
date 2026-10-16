@@ -6,7 +6,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from app.config import settings
-from app.database import Base, engine
+from app.database import Base, engine, init_db
 from app.main import app
 from app.moxfield import extract_deck_cards, parse_deck_id, parse_pasted_text
 from app.pricing import compute_total_cents, format_cents_eur
@@ -14,7 +14,7 @@ from proxy_parser.deck_parser import parse_moxfield_file
 
 @pytest.fixture(autouse=True)
 def setup_test_db():
-    Base.metadata.create_all(bind=engine)
+    init_db()
     yield
 
 @pytest.fixture
@@ -174,3 +174,58 @@ def test_admin_flow_and_exports(client):
     # Verify ZIP contents
     zf = zipfile.ZipFile(io.BytesIO(zip_resp.content))
     assert "summary_costs.csv" in zf.namelist()
+
+def test_extract_tokens_option():
+    mock_data = {
+        "name": "Token Deck",
+        "boards": {
+            "mainboard": {
+                "cards": {
+                    "c1": {"quantity": 1, "card": {"name": "Raise the Alarm", "set": "cmm", "cn": "50"}}
+                }
+            },
+            "tokens": {
+                "cards": {
+                    "t1": {"quantity": 2, "card": {"name": "Soldier Token", "set": "tcmm", "cn": "1"}}
+                }
+            }
+        },
+        "tokens": [
+            {"name": "Treasure Token", "set": "tcmm", "cn": "15"}
+        ]
+    }
+    
+    # Without tokens
+    _, without_tok = extract_deck_cards(mock_data, include_tokens=False)
+    assert len(without_tok) == 1
+    assert without_tok[0]["name"] == "Raise the Alarm"
+
+    # With tokens
+    _, with_tok = extract_deck_cards(mock_data, include_tokens=True)
+    assert len(with_tok) == 3
+    names = [c["name"] for c in with_tok]
+    assert "Raise the Alarm" in names
+    assert "Soldier Token" in names
+    assert "Treasure Token" in names
+
+def test_empty_deck_submission_redirect_and_error_banner(client):
+    # Submit with no valid deck content
+    resp = client.post("/submit", data={
+        "ui_lang": "en",
+        "deck_count": "1",
+        "submitter_name": "Fabian",
+        "deck_name_0": "Empty Deck",
+        "source_type_0": "url",
+        "moxfield_url_0": "",
+        "raw_text_0": "",
+    }, follow_redirects=False)
+
+    assert resp.status_code == 303
+    assert "error=empty_decks" in resp.headers["location"]
+
+    # Following the redirect displays the error banner
+    follow_resp = client.get(resp.headers["location"])
+    assert follow_resp.status_code == 200
+    assert "No valid deck found" in follow_resp.text
+    assert "Include Tokens" in follow_resp.text
+

@@ -48,7 +48,8 @@ def fetch_moxfield_deck(deck_id: str) -> dict:
 def extract_deck_cards(
     deck_data: dict,
     include_sideboard: bool = False,
-    include_considering: bool = False
+    include_considering: bool = False,
+    include_tokens: bool = False
 ) -> Tuple[str, List[dict]]:
     """
     Extracts cards from Moxfield deck JSON according to options.
@@ -91,6 +92,40 @@ def extract_deck_cards(
                 "board": board_name,
             })
             
+    # Include Tokens if selected
+    if include_tokens:
+        seen_tokens = set()
+        # 1. From boards.tokens
+        board_tokens = boards.get("tokens", {}).get("cards", {})
+        for item in board_tokens.values():
+            card_info = item.get("card", {})
+            key = (card_info.get("name"), card_info.get("set", "").lower(), str(card_info.get("cn", "")))
+            seen_tokens.add(key)
+            extracted_cards.append({
+                "qty": int(item.get("quantity", 1)),
+                "name": card_info.get("name", ""),
+                "set": card_info.get("set", "").lower(),
+                "cn": str(card_info.get("cn", "")).strip(),
+                "is_foil": False,
+                "promo_types": card_info.get("promo_types", []) or [],
+                "board": "tokens",
+            })
+            
+        # 2. From deck_data.tokens list
+        for tok in deck_data.get("tokens", []):
+            key = (tok.get("name"), tok.get("set", "").lower(), str(tok.get("cn", "")))
+            if key not in seen_tokens:
+                seen_tokens.add(key)
+                extracted_cards.append({
+                    "qty": 1,
+                    "name": tok.get("name", ""),
+                    "set": tok.get("set", "").lower(),
+                    "cn": str(tok.get("cn", "")).strip(),
+                    "is_foil": False,
+                    "promo_types": tok.get("promo_types", []) or [],
+                    "board": "tokens",
+                })
+
     return deck_name, extracted_cards
 
 def parse_pasted_text(text: str) -> List[dict]:

@@ -6,6 +6,13 @@
   <p>{{ t("subtitle") }}</p>
 </div>
 
+{% if error == "empty_decks" %}
+<div class="alert alert-danger" style="margin-bottom: 24px;">
+  <span style="font-size: 1.25rem;">⚠️</span>
+  <div>{{ t("empty_decks_error") }}</div>
+</div>
+{% endif %}
+
 <form action="/submit" method="POST" enctype="multipart/form-data" id="submit-form">
   <input type="hidden" name="ui_lang" value="{{ lang }}">
   <input type="hidden" name="deck_count" id="deck_count" value="1">
@@ -83,6 +90,10 @@
           {{ t("include_considering") }}
         </label>
         <label class="checkbox-label">
+          <input type="checkbox" id="include_tokens_0" name="include_tokens_0">
+          {{ t("include_tokens") }}
+        </label>
+        <label class="checkbox-label">
           <input type="checkbox" id="convert_foils_0" name="convert_foils_0" checked>
           {{ t("convert_foils") }}
         </label>
@@ -136,9 +147,53 @@
   </div>
 
   <div class="action-row">
-    <button type="submit" class="btn btn-primary btn-block" style="font-size: 1.05rem; padding: 16px;">
+    <button type="submit" id="submit-btn" class="btn btn-primary btn-block" style="font-size: 1.05rem; padding: 16px;">
       ⚡ {{ t("analyze_and_convert") }}
     </button>
   </div>
 </form>
+
+<!-- Processing Progress Modal Popup -->
+<div id="processing-modal" class="modal-backdrop" style="display: none;" aria-hidden="true">
+  <div class="modal-card">
+    <div class="processing-glow-ring">
+      <div class="spinner-pulse"></div>
+      <div class="processing-icon">⚡</div>
+    </div>
+    
+    <h2 class="modal-title">{{ t("processing_title") }}</h2>
+    <p class="modal-subtext">{{ t("processing_subtitle") }}</p>
+
+    <!-- Progress Bar -->
+    <div class="progress-container">
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-stats">
+        <span id="progress-status-text">{{ t("step_moxfield") }}</span>
+        <span id="progress-percent" style="font-weight: 700; color: #a5b4fc;">0%</span>
+      </div>
+    </div>
+
+    <!-- Stepper List -->
+    <div class="processing-steps">
+      <div class="step-item active" id="step-1">
+        <span class="step-dot"></span>
+        <span class="step-label">{{ t("step_moxfield") }}</span>
+      </div>
+      <div class="step-item" id="step-2">
+        <span class="step-dot"></span>
+        <span class="step-label">{{ t("step_scryfall") }}</span>
+      </div>
+      <div class="step-item" id="step-3">
+        <span class="step-dot"></span>
+        <span class="step-label">{{ t("step_foils") }}</span>
+      </div>
+      <div class="step-item" id="step-4">
+        <span class="step-dot"></span>
+        <span class="step-label">{{ t("step_finalize") }}</span>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

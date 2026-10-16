@@ -1,6 +1,7 @@
 """Deck converter that applies pre-run transformations and traffic-light validation."""
 from typing import Dict, List, Optional, Tuple
 from .scryfall import (
+    preload_cards_batch,
     get_card_by_set_cn,
     get_card_by_name,
     is_foil_only,
@@ -100,6 +101,9 @@ def process_deck_cards(
         f"// Deck: {deck_name}",
         f"// Language: {preferred_language}",
     ]
+    
+    # Preload all cards via Scryfall collection batch API for fast sub-second analysis
+    preload_cards_batch(raw_cards)
     
     for item in raw_cards:
         qty = item["qty"]

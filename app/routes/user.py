@@ -32,10 +32,11 @@ def generate_reference_code(submitter_name: str) -> str:
     return f"MTG-{clean_name}-{suffix}"
 
 @router.get("/", response_class=HTMLResponse)
-def index_page(request: Request, lang: str = "en", db: Session = Depends(get_db)):
+def index_page(request: Request, lang: str = "en", error: Optional[str] = None, db: Session = Depends(get_db)):
     rates = get_pricing_settings(db)
     return templates.TemplateResponse(request, "index.html", {
         "lang": lang,
+        "error": error,
         "t": lambda key, *args: t(key, lang, *args),
         "language_names": LANGUAGE_NAMES,
         "rates": rates,
@@ -50,7 +51,7 @@ def moxfield_preview(payload: dict):
         raise HTTPException(status_code=400, detail="Missing URL")
     try:
         data = fetch_moxfield_deck(url)
-        name, cards = extract_deck_cards(data, include_sideboard=False, include_considering=False)
+        name, cards = extract_deck_cards(data, include_sideboard=False, include_considering=False, include_tokens=False)
         total_count = sum(c["qty"] for c in cards)
         return {
             "success": True,
@@ -58,6 +59,7 @@ def moxfield_preview(payload: dict):
             "main_count": total_count,
             "has_sideboard": bool(data.get("boards", {}).get("sideboard", {}).get("cards")),
             "has_considering": bool(data.get("boards", {}).get("maybeboard", {}).get("cards")),
+            "has_tokens": bool(data.get("tokens") or data.get("boards", {}).get("tokens", {}).get("cards")),
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -108,6 +110,7 @@ async def submit_decks(
         pref_lang = str(form_data.get(f"preferred_language_{i}", "en")).strip()
         inc_sideboard = bool(form_data.get(f"include_sideboard_{i}"))
         inc_considering = bool(form_data.get(f"include_considering_{i}"))
+        inc_tokens = bool(form_data.get(f"include_tokens_{i}"))
         conv_foils = bool(form_data.get(f"convert_foils_{i}", "on"))
         rep_stamps = bool(form_data.get(f"replace_stamps_{i}", "on"))
         
@@ -120,7 +123,8 @@ async def submit_decks(
                 fetched_title, raw_cards = extract_deck_cards(
                     mox_data,
                     include_sideboard=inc_sideboard,
-                    include_considering=inc_considering
+                    include_considering=inc_considering,
+                    include_tokens=inc_tokens
                 )
                 if not deck_name or deck_name == f"Deck {i+1}":
                     deck_name = fetched_title
@@ -176,6 +180,7 @@ async def submit_decks(
             preferred_language=pref_lang,
             include_sideboard=inc_sideboard,
             include_considering=inc_considering,
+            include_tokens=inc_tokens,
             convert_foils=conv_foils,
             replace_stamps=rep_stamps,
             custom_back_filename=back_filename,
@@ -188,6 +193,11 @@ async def submit_decks(
             diagnostics_json=json.dumps([a.to_dict() for a in audit_items]),
         )
         db.add(deck)
+
+    if decks_processed == 0:
+        db.delete(order)
+        db.commit()
+        return RedirectResponse(f"/?lang={ui_lang}&error=empty_decks", status_code=303)
 
     order.total_lists = decks_processed
     order.total_cards = total_order_cards
