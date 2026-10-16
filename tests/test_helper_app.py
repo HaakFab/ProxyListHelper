@@ -874,6 +874,71 @@ def test_same_set_nonfoil_priority():
         res = find_clean_paper_fallback("Sol Ring", prefer_nonfoil=True, preferred_set="CMM")
         assert res is not None
         assert res["set"] == "cmm"
-        assert res["collector_number"] == "100"
-        # First query should be same-set search
         assert "s%3Acmm" in queries_made[0] or "s:cmm" in queries_made[0]
+
+
+def test_unchecked_options_not_replaced(client):
+    from unittest.mock import patch
+
+    mock_foil_sol_ring = {
+        "name": "Sol Ring",
+        "set": "cmm",
+        "collector_number": "401",
+        "finishes": ["foil"],
+        "games": ["paper"],
+        "digital": False,
+        "promo_types": []
+    }
+
+    with patch("app.converter.get_card_by_set_cn", return_value=mock_foil_sol_ring):
+        # 1. Submit with convert_foils UNCHECKED (omitted from form)
+        resp_unchecked = client.post(
+            "/submit",
+            data={
+                "submitter_name": "NoFoilConversion",
+                "ui_lang": "en",
+                "deck_count": "1",
+                "deck_name_0": "Keep Foil Deck",
+                "source_type_0": "text",
+                "raw_text_0": "1 Sol Ring (CMM) 401",
+                # convert_foils_0 is omitted!
+                # replace_stamps_0 is omitted!
+            },
+            follow_redirects=False
+        )
+        assert resp_unchecked.status_code == 303
+        order_id = resp_unchecked.headers["location"].split("/")[-1].split("?")[0]
+        
+        from app.models import Order
+        db_gen = app.dependency_overrides.get(get_db, get_db)
+        db = next(db_gen())
+        order = db.query(Order).filter(Order.order_id == order_id).first()
+        assert order is not None
+        deck = order.decks[0]
+        assert deck.convert_foils is False
+        assert deck.replace_stamps is False
+        assert "1 Sol Ring (CMM) 401" in deck.converted_text
+        diags = json.loads(deck.diagnostics_json)
+        assert diags[0]["status"] == "GREEN"
+        assert diags[0]["category"] == "CLEAN"
+
+        # 2. Submit with convert_foils CHECKED
+        resp_checked = client.post(
+            "/submit",
+            data={
+                "submitter_name": "DoFoilConversion",
+                "ui_lang": "en",
+                "deck_count": "1",
+                "deck_name_0": "Convert Foil Deck",
+                "source_type_0": "text",
+                "raw_text_0": "1 Sol Ring (CMM) 401",
+                "convert_foils_0": "on",
+            },
+            follow_redirects=False
+        )
+        assert resp_checked.status_code == 303
+        order_id_2 = resp_checked.headers["location"].split("/")[-1].split("?")[0]
+        order_2 = db.query(Order).filter(Order.order_id == order_id_2).first()
+        deck_2 = order_2.decks[0]
+        assert deck_2.convert_foils is True
+

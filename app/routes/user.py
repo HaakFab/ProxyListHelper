@@ -66,6 +66,14 @@ def moxfield_preview(payload: dict):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+def _is_checkbox_checked(val) -> bool:
+    if not val:
+        return False
+    if isinstance(val, str):
+        return val.strip().lower() in ("on", "true", "1", "yes")
+    return bool(val)
+
+
 @router.post("/submit")
 async def submit_decks(
     request: Request,
@@ -110,14 +118,14 @@ async def submit_decks(
         raw_pasted = str(form_data.get(f"raw_text_{i}", "")).strip()
         
         pref_lang = str(form_data.get(f"preferred_language_{i}", "en")).strip()
-        inc_sideboard = bool(form_data.get(f"include_sideboard_{i}"))
-        inc_considering = bool(form_data.get(f"include_considering_{i}"))
-        inc_tokens = bool(form_data.get(f"include_tokens_{i}"))
-        inc_stickers = bool(form_data.get(f"include_stickers_{i}"))
-        conv_foils = bool(form_data.get(f"convert_foils_{i}", "on"))
-        rep_stamps = bool(form_data.get(f"replace_stamps_{i}", "on"))
-        rep_date_stamps = bool(form_data.get(f"replace_date_stamps_{i}", "on"))
-        rep_digital = bool(form_data.get(f"replace_digital_{i}", "on"))
+        inc_sideboard = _is_checkbox_checked(form_data.get(f"include_sideboard_{i}"))
+        inc_considering = _is_checkbox_checked(form_data.get(f"include_considering_{i}"))
+        inc_tokens = _is_checkbox_checked(form_data.get(f"include_tokens_{i}"))
+        inc_stickers = _is_checkbox_checked(form_data.get(f"include_stickers_{i}"))
+        conv_foils = _is_checkbox_checked(form_data.get(f"convert_foils_{i}"))
+        rep_stamps = _is_checkbox_checked(form_data.get(f"replace_stamps_{i}"))
+        rep_date_stamps = _is_checkbox_checked(form_data.get(f"replace_date_stamps_{i}"))
+        rep_digital = _is_checkbox_checked(form_data.get(f"replace_digital_{i}"))
         
         raw_cards = []
         raw_text_storage = ""
