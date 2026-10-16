@@ -42,8 +42,8 @@
         </div>
 
         {% for item in p.red_items %}
-        {% set item_idx = loop.index0 %}
         <div class="issue-card has-card-hover"
+             id="issue-row-{{ p.deck.id }}-{{ item.diag_idx }}"
              data-v1-img="{{ item.original_image_url or '' }}"
              data-v1-label="{{ item.original_version_label or item.name }}"
              data-reason="{{ item.message }}">
@@ -57,21 +57,27 @@
             // {{ item.message }}
           </div>
 
-          <div class="action-selector">
+          <div class="action-selector" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             {% if item.suggested_set %}
             <label class="action-radio-label">
-              <input type="radio" name="action_{{ p.deck.id }}_{{ item_idx }}" value="substitute" checked>
-              <span>[{{ t("action_substitute") }} &rarr; {{ item.suggested_set.upper() }} #{{ item.suggested_cn }}]</span>
+              <input type="radio" name="action_{{ p.deck.id }}_{{ item.diag_idx }}" value="substitute" checked>
+              <span id="substitute-label-{{ p.deck.id }}-{{ item.diag_idx }}">[{{ t("action_substitute") }} &rarr; {{ item.suggested_set.upper() }} #{{ item.suggested_cn }}]</span>
             </label>
+            <button type="button" class="btn btn-switch-version"
+                    onclick="openVersionPicker({{ p.deck.id }}, {{ item.diag_idx }}, '{{ item.name|escape }}', '{{ item.suggested_set or '' }}', '{{ item.suggested_cn or '' }}')"
+                    title="{{ t('switch_version_tooltip') }}">
+              ⇄ {{ t('switch_card_version') }}
+            </button>
+            <input type="hidden" name="custom_v2_line_{{ p.deck.id }}_{{ item.diag_idx }}" id="input-v2-line-{{ p.deck.id }}-{{ item.diag_idx }}" value="{{ item.fixed_line or '' }}">
             {% endif %}
 
             <label class="action-radio-label">
-              <input type="radio" name="action_{{ p.deck.id }}_{{ item_idx }}" value="drop" {% if not item.suggested_set %}checked{% endif %}>
+              <input type="radio" name="action_{{ p.deck.id }}_{{ item.diag_idx }}" value="drop" {% if not item.suggested_set %}checked{% endif %}>
               <span>[{{ t("action_drop") }}]</span>
             </label>
 
             <label class="action-radio-label">
-              <input type="radio" name="action_{{ p.deck.id }}_{{ item_idx }}" value="keep">
+              <input type="radio" name="action_{{ p.deck.id }}_{{ item.diag_idx }}" value="keep">
               <span>[{{ t("action_keep") }}]</span>
             </label>
           </div>
@@ -90,19 +96,27 @@
           <div style="margin-top: 8px;">
             {% for item in p.yellow_items %}
               <div class="change-item-row has-card-hover"
+                   id="replacement-row-{{ p.deck.id }}-{{ item.diag_idx }}"
                    data-v1-img="{{ item.original_image_url or '' }}"
                    data-v2-img="{{ item.fixed_image_url or '' }}"
                    data-v1-label="{{ item.original_version_label or item.original_line }}"
                    data-v2-label="{{ item.fixed_version_label or item.fixed_line }}"
                    data-reason="{{ item.message }}">
-                <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px;">
                   <span class="badge badge-yellow" style="font-size: 0.68rem;">{{ (item.category or 'MODIFIED').replace('_', ' ') }}</span>
                   <strong style="font-family: var(--font-mono);">{{ item.qty }}x {{ item.name }}</strong>
                 </div>
-                <div class="compare-chips">
+                <div class="compare-chips" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                   <span class="version-chip version-chip-v1">{{ item.original_version_label or 'V1: Requested' }}</span>
                   <span style="font-weight: 900; color: #111;">&rarr;</span>
-                  <span class="version-chip version-chip-v2">{{ item.fixed_version_label or 'V2: Replaced' }}</span>
+                  <span class="version-chip version-chip-v2" id="v2-chip-{{ p.deck.id }}-{{ item.diag_idx }}">{{ item.fixed_version_label or 'V2: Replaced' }}</span>
+                  
+                  <button type="button" class="btn btn-switch-version"
+                          onclick="openVersionPicker({{ p.deck.id }}, {{ item.diag_idx }}, '{{ item.name|escape }}', '{{ item.set or item.suggested_set or '' }}', '{{ item.cn or item.suggested_cn or '' }}')"
+                          title="{{ t('switch_version_tooltip') }}">
+                    ⇄ {{ t('switch_card_version') }}
+                  </button>
+                  <input type="hidden" name="custom_v2_line_{{ p.deck.id }}_{{ item.diag_idx }}" id="input-v2-line-{{ p.deck.id }}-{{ item.diag_idx }}" value="{{ item.fixed_line }}">
                 </div>
               </div>
             {% endfor %}
@@ -182,4 +196,67 @@
     </button>
   </div>
 </form>
+
+<!-- Interactive Card Version Switcher Modal -->
+<div id="version-picker-modal" class="modal-backdrop" style="display: none;" aria-hidden="true">
+  <div class="version-picker-card">
+    <!-- Header -->
+    <div class="version-picker-header">
+      <div>
+        <span class="badge" style="background: var(--accent-acid); color: var(--text-dark); border: 2px solid var(--text-dark); font-weight: 800; font-size: 0.72rem;">
+          [{{ t("modal_version_title") }}]
+        </span>
+        <h2 id="modal-card-title" class="modal-card-name" style="margin: 6px 0 2px; font-family: var(--font-display); font-size: 1.45rem; text-transform: uppercase;">
+          Card Name
+        </h2>
+        <div id="modal-replacing-context" style="font-family: var(--font-mono); font-size: 0.78rem; color: #555;">
+          {{ t("modal_replacing_label") }}: <strong id="modal-current-version-label" style="background: #111; color: var(--accent-acid); padding: 1px 6px;">SET #CN</strong>
+        </div>
+      </div>
+      <button type="button" class="btn-close-modal" onclick="closeVersionModal()" title="{{ t('modal_close') }}">
+        ✕ {{ t("modal_close") }}
+      </button>
+    </div>
+
+    <!-- Filter & Search Toolbar -->
+    <div class="version-picker-toolbar">
+      <div style="position: relative; flex: 1; min-width: 200px;">
+        <input type="text" id="version-search-input" class="version-search-box"
+               placeholder="{{ t('modal_search_placeholder') }}"
+               oninput="filterCardVersions()">
+      </div>
+      <div class="version-filter-pills">
+        <button type="button" class="filter-pill active" data-filter="all" onclick="setVersionFilter('all')">{{ t("modal_filter_all") }}</button>
+        <button type="button" class="filter-pill" data-filter="paper" onclick="setVersionFilter('paper')">{{ t("modal_filter_paper") }}</button>
+        <button type="button" class="filter-pill" data-filter="nonfoil" onclick="setVersionFilter('nonfoil')">{{ t("modal_filter_nonfoil") }}</button>
+        <button type="button" class="filter-pill" data-filter="nostamps" onclick="setVersionFilter('nostamps')">{{ t("modal_filter_nostamps") }}</button>
+      </div>
+    </div>
+
+    <!-- Results count bar -->
+    <div id="modal-results-bar" style="font-family: var(--font-mono); font-size: 0.74rem; font-weight: 700; color: #777; margin-bottom: 12px; text-transform: uppercase;">
+      Showing all printings
+    </div>
+
+    <!-- Scrollable Grid Body -->
+    <div id="modal-versions-container" class="version-cards-grid">
+      <!-- Populated dynamically via app.js -->
+    </div>
+
+    <!-- Loading State -->
+    <div id="modal-loading-indicator" style="display: none; padding: 40px 20px; text-align: center;">
+      <div class="processing-glow-ring">
+        <span class="processing-icon">⚡</span>
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 0.88rem; font-weight: 800; text-transform: uppercase; margin-top: 14px; color: var(--accent-acid);">
+        {{ t("modal_loading") }}
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="modal-empty-state" style="display: none; padding: 40px 20px; text-align: center; font-family: var(--font-mono); font-size: 0.86rem; color: #888;">
+      {{ t("modal_no_versions") }}
+    </div>
+  </div>
+</div>
 {% endblock %}

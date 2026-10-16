@@ -297,3 +297,94 @@ def check_localized_scan(set_code: str, collector_number: str, lang: str) -> Tup
         
     printed_name = data.get("printed_name") or data.get("name")
     return has_image, printed_name
+
+
+def get_card_versions(card_name: str) -> List[dict]:
+    """
+    Returns all printings/versions of a card from Scryfall ordered by release date descending.
+    Each version dictionary contains set code, collector number, set name, release year,
+    image URL, finishes (foil/nonfoil), flags for stamps, promo, and digital.
+    """
+    if not card_name:
+        return []
+
+    clean_name = card_name.split(" // ")[0].strip()
+    clean_name = clean_name.replace("’", "'").replace("‘", "'").replace("—", "-").replace("–", "-")
+    clean_name = re.sub(r"^[Aa]-", "", clean_name).strip()
+
+    # 1. Try finding card first to get prints_search_uri or oracle_id
+    card = get_card_by_name(clean_name)
+    prints_url = None
+    if card and card.get("prints_search_uri"):
+        prints_url = card["prints_search_uri"]
+    else:
+        params = urllib.parse.urlencode({
+            "q": f'!\"{clean_name}\"',
+            "unique": "prints",
+            "order": "released",
+            "dir": "desc"
+        })
+        prints_url = f"https://api.scryfall.com/cards/search?{params}"
+
+    data = _scryfall_get(prints_url)
+    if not data or "data" not in data:
+        return []
+
+    raw_list = list(data["data"])
+    # If there's a second page and total is under 200, fetch next page
+    if data.get("has_more") and data.get("next_page") and len(raw_list) < 200:
+        data_p2 = _scryfall_get(data["next_page"])
+        if data_p2 and "data" in data_p2:
+            raw_list.extend(data_p2["data"])
+
+    versions = []
+    seen = set()
+    for c in raw_list:
+        c_set = (c.get("set") or "").lower()
+        c_cn = str(c.get("collector_number") or "").strip()
+        key = (c_set, c_cn)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        finishes = c.get("finishes", []) or []
+        promo_types = c.get("promo_types", []) or []
+        frame_effects = c.get("frame_effects", []) or []
+
+        is_digital = is_digital_card(c)
+        is_foil_only_val = is_foil_only(c)
+        has_pw_stamp = has_planeswalker_stamp(c)
+        has_dt_stamp = has_date_stamp(c)
+
+        set_name = c.get("set_name") or c_set.upper()
+        released_at = c.get("released_at", "")
+        released_year = released_at[:4] if released_at else ""
+
+        version_label = f"{c_set.upper()} #{c_cn}"
+        if promo_types:
+            promo_note = promo_types[0].replace("_", " ").title()
+            version_label += f" ({promo_note})"
+
+        img_url = get_card_image_url(c)
+
+        versions.append({
+            "set": c_set,
+            "collector_number": c_cn,
+            "set_name": set_name,
+            "released_at": released_at,
+            "released_year": released_year,
+            "version_label": version_label,
+            "image_url": img_url,
+            "finishes": finishes,
+            "is_foil_only": is_foil_only_val,
+            "has_planeswalker_stamp": has_pw_stamp,
+            "has_date_stamp": has_dt_stamp,
+            "is_digital": is_digital,
+            "rarity": c.get("rarity", ""),
+            "frame_effects": frame_effects,
+            "promo_types": promo_types,
+            "artist": c.get("artist", ""),
+        })
+
+    return versions
+

@@ -676,4 +676,182 @@ def test_admin_toggle_paid_and_delete(client):
     assert "REF-BOB123" not in dash_after_del.text
 
 
+def test_get_card_versions_mocked():
+    from unittest.mock import patch
+    from app.scryfall import get_card_versions
+
+    mock_prints_data = {
+        "object": "list",
+        "data": [
+            {
+                "set": "pmom",
+                "collector_number": "110p",
+                "set_name": "March of the Machine Promos",
+                "released_at": "2023-04-21",
+                "image_uris": {"normal": "https://cards.scryfall.io/pmom110p.jpg"},
+                "finishes": ["nonfoil", "foil"],
+                "promo_types": ["promopack", "stamped"],
+                "digital": False,
+                "rarity": "rare",
+            },
+            {
+                "set": "mom",
+                "collector_number": "360",
+                "set_name": "March of the Machine",
+                "released_at": "2023-04-21",
+                "image_uris": {"normal": "https://cards.scryfall.io/mom360.jpg"},
+                "finishes": ["nonfoil", "foil"],
+                "promo_types": ["boosterfun"],
+                "digital": False,
+                "rarity": "rare",
+            },
+            {
+                "set": "mom",
+                "collector_number": "110",
+                "set_name": "March of the Machine",
+                "released_at": "2023-04-21",
+                "image_uris": {"normal": "https://cards.scryfall.io/mom110.jpg"},
+                "finishes": ["nonfoil", "foil"],
+                "promo_types": [],
+                "digital": False,
+                "rarity": "rare",
+            }
+        ]
+    }
+
+    with patch("app.scryfall.get_card_by_name", return_value={"prints_search_uri": "https://api.scryfall.com/cards/search?prints"}), \
+         patch("app.scryfall._scryfall_get", return_value=mock_prints_data):
+        versions = get_card_versions("Hoarding Broodlord")
+        assert len(versions) == 3
+        assert versions[0]["set"] == "pmom"
+        assert versions[0]["collector_number"] == "110p"
+        assert versions[0]["has_planeswalker_stamp"] is True
+        assert versions[1]["set"] == "mom"
+        assert versions[1]["collector_number"] == "360"
+        assert versions[1]["has_planeswalker_stamp"] is False
+        assert versions[1]["is_digital"] is False
+        assert versions[2]["set"] == "mom"
+        assert versions[2]["collector_number"] == "110"
+
+
+def test_switch_card_version_api_and_review_flow(client):
+    import json
+    import uuid
+    from app.models import Order, Deck
+
+    db_gen = app.dependency_overrides.get(get_db, get_db)
+    db = next(db_gen())
+
+    unique = uuid.uuid4().hex[:8]
+    order_id = f"ord_switch_{unique}"
+
+    diag_item = {
+        "qty": 1,
+        "name": "Hoarding Broodlord",
+        "set": "pmom",
+        "cn": "110p",
+        "status": "YELLOW",
+        "category": "STAMP_REPLACED",
+        "message": "Planeswalker-stamped promo replaced with clean printing (MOM #110).",
+        "original_line": "1 Hoarding Broodlord (PMOM) 110p",
+        "fixed_line": "1 Hoarding Broodlord (MOM) 110",
+        "suggested_set": "mom",
+        "suggested_cn": "110",
+        "original_version_label": "PMOM #110p",
+        "fixed_version_label": "MOM #110",
+        "original_image_url": "https://cards.scryfall.io/pmom110p.jpg",
+        "fixed_image_url": "https://cards.scryfall.io/mom110.jpg"
+    }
+
+    deck = Deck(
+        name="Switch Version Test Deck",
+        ordinal=1,
+        preferred_language="en",
+        card_count=1,
+        status="YELLOW",
+        raw_text="1 Hoarding Broodlord (PMOM) 110p",
+        converted_text="// Deck: Switch Version Test Deck\n// Language: en\n1 Hoarding Broodlord (MOM) 110\n",
+        diagnostics_json=json.dumps([diag_item])
+    )
+
+    order = Order(
+        order_id=order_id,
+        submitter_name="Card Switcher User",
+        reference_code=f"REF-SW-{unique}",
+        status="PENDING_REVIEW",
+        total_lists=1,
+        total_cards=1,
+        total_price_cents=39,
+        price_per_card_cents=13,
+        price_per_list_cents=26,
+        order_fee_cents=0,
+        decks=[deck]
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    db.refresh(deck)
+
+    # 1. Verify GET /review/{order_id} shows switch version button and modal
+    review_resp = client.get(f"/review/{order_id}?lang=en")
+    assert review_resp.status_code == 200
+    assert "CARD REPLACEMENTS LOG" in review_resp.text
+    assert "Switch Version" in review_resp.text
+    assert "version-picker-modal" in review_resp.text
+    assert f"openVersionPicker({deck.id}, 0" in review_resp.text
+
+    # 2. Test GET /api/card-versions
+    from unittest.mock import patch
+    mock_versions = [
+        {"set": "mom", "collector_number": "360", "version_label": "MOM #360", "image_url": "https://cards.scryfall.io/mom360.jpg"}
+    ]
+    with patch("app.routes.user.get_card_versions", return_value=mock_versions):
+        versions_resp = client.get("/api/card-versions?name=Hoarding+Broodlord")
+        assert versions_resp.status_code == 200
+        data = versions_resp.json()
+        assert data["success"] is True
+        assert len(data["versions"]) == 1
+        assert data["versions"][0]["collector_number"] == "360"
+
+    # 3. Test POST /api/deck/{deck_id}/switch-version
+    switch_resp = client.post(
+        f"/api/deck/{deck.id}/switch-version",
+        json={
+            "item_idx": 0,
+            "set": "mom",
+            "cn": "360",
+            "image_url": "https://cards.scryfall.io/mom360.jpg",
+            "version_label": "MOM #360 (Boosterfun)"
+        }
+    )
+    assert switch_resp.status_code == 200
+    switch_data = switch_resp.json()
+    assert switch_data["success"] is True
+    assert switch_data["fixed_line"] == "1 Hoarding Broodlord (MOM) 360"
+    assert switch_data["fixed_version_label"] == "MOM #360 (Boosterfun)"
+
+    # Verify database was updated
+    db.refresh(deck)
+    db_diags = json.loads(deck.diagnostics_json)
+    assert db_diags[0]["set"] == "mom"
+    assert db_diags[0]["cn"] == "360"
+    assert db_diags[0]["fixed_line"] == "1 Hoarding Broodlord (MOM) 360"
+    assert "1 Hoarding Broodlord (MOM) 360" in deck.converted_text
+
+    # 4. Resolve / Submit the order and verify the chosen replacement is preserved!
+    resolve_resp = client.post(
+        f"/review/{order_id}/resolve",
+        data={"ui_lang": "en"},
+        follow_redirects=False
+    )
+    assert resolve_resp.status_code == 303
+    assert f"/success/{order_id}" in resolve_resp.headers["location"]
+
+    db.refresh(order)
+    db.refresh(deck)
+    assert order.status == "SUBMITTED"
+    assert "1 Hoarding Broodlord (MOM) 360" in deck.converted_text
+
+
+
 

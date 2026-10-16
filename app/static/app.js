@@ -509,4 +509,336 @@ function initCardHoverTooltip() {
   });
 }
 
+// ==========================================
+// Interactive Card Version Switcher Modal
+// ==========================================
+
+let currentDeckId = null;
+let currentDiagIdx = null;
+let currentCardName = null;
+let currentActiveSet = null;
+let currentActiveCn = null;
+let currentVersionsList = [];
+let currentFilteredVersions = [];
+let currentActiveFilter = 'all';
+
+function openVersionPicker(deckId, diagIdx, cardName, currentSet, currentCn) {
+  currentDeckId = deckId;
+  currentDiagIdx = diagIdx;
+  currentCardName = cardName;
+  currentActiveSet = (currentSet || '').toLowerCase().trim();
+  currentActiveCn = String(currentCn || '').trim();
+  currentActiveFilter = 'all';
+
+  const modal = document.getElementById('version-picker-modal');
+  if (!modal) return;
+
+  const cardTitle = document.getElementById('modal-card-title');
+  const currentBadge = document.getElementById('modal-current-version-label');
+  const searchInput = document.getElementById('version-search-input');
+  const loading = document.getElementById('modal-loading-indicator');
+  const emptyState = document.getElementById('modal-empty-state');
+  const container = document.getElementById('modal-versions-container');
+
+  if (cardTitle) cardTitle.textContent = cardName;
+  if (currentBadge) {
+    currentBadge.textContent = currentActiveSet && currentActiveCn 
+      ? `${currentActiveSet.toUpperCase()} #${currentActiveCn}`
+      : 'NONE';
+  }
+  if (searchInput) searchInput.value = '';
+
+  // Reset filter pills
+  document.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.classList.toggle('active', pill.dataset.filter === 'all');
+  });
+
+  if (container) {
+    container.innerHTML = '';
+    container.style.display = 'grid';
+  }
+  if (emptyState) emptyState.style.display = 'none';
+  if (loading) loading.style.display = 'block';
+
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+
+  // Fetch versions from Scryfall API
+  fetch(`/api/card-versions?name=${encodeURIComponent(cardName)}`)
+    .then(res => res.json())
+    .then(data => {
+      if (loading) loading.style.display = 'none';
+      if (data && data.success && Array.isArray(data.versions)) {
+        currentVersionsList = data.versions;
+        renderVersionCards();
+      } else {
+        currentVersionsList = [];
+        if (emptyState) {
+          emptyState.textContent = (data && data.error) || 'No printings found for this card.';
+          emptyState.style.display = 'block';
+        }
+      }
+    })
+    .catch(() => {
+      if (loading) loading.style.display = 'none';
+      currentVersionsList = [];
+      if (emptyState) {
+        emptyState.textContent = 'Could not load printings. Check connection to Scryfall.';
+        emptyState.style.display = 'block';
+      }
+    });
+}
+
+function closeVersionModal() {
+  const modal = document.getElementById('version-picker-modal');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function setVersionFilter(filterType) {
+  currentActiveFilter = filterType;
+  document.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.classList.toggle('active', pill.dataset.filter === filterType);
+  });
+  renderVersionCards();
+}
+
+function filterCardVersions() {
+  renderVersionCards();
+}
+
+function renderVersionCards() {
+  const container = document.getElementById('modal-versions-container');
+  const emptyState = document.getElementById('modal-empty-state');
+  const resultsBar = document.getElementById('modal-results-bar');
+  const searchInput = document.getElementById('version-search-input');
+  if (!container) return;
+
+  const query = (searchInput?.value || '').toLowerCase().trim();
+
+  currentFilteredVersions = currentVersionsList.filter(v => {
+    // Text search filter
+    if (query) {
+      const matchSet = (v.set || '').toLowerCase().includes(query);
+      const matchCn = String(v.collector_number || '').toLowerCase().includes(query);
+      const matchSetName = (v.set_name || '').toLowerCase().includes(query);
+      const matchLabel = (v.version_label || '').toLowerCase().includes(query);
+      const matchArtist = (v.artist || '').toLowerCase().includes(query);
+      if (!matchSet && !matchCn && !matchSetName && !matchLabel && !matchArtist) {
+        return false;
+      }
+    }
+
+    // Category pill filter
+    if (currentActiveFilter === 'paper' && v.is_digital) return false;
+    if (currentActiveFilter === 'nonfoil' && (!v.finishes || !v.finishes.includes('nonfoil'))) return false;
+    if (currentActiveFilter === 'nostamps' && (v.has_planeswalker_stamp || v.has_date_stamp)) return false;
+
+    return true;
+  });
+
+  if (resultsBar) {
+    resultsBar.textContent = `Showing ${currentFilteredVersions.length} of ${currentVersionsList.length} printings`;
+  }
+
+  if (currentFilteredVersions.length === 0) {
+    container.innerHTML = '';
+    container.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'block';
+    return;
+  }
+
+  if (emptyState) emptyState.style.display = 'none';
+  container.style.display = 'grid';
+
+  let html = '';
+  currentFilteredVersions.forEach((v, idx) => {
+    const isCurrent = (v.set.toLowerCase() === currentActiveSet && String(v.collector_number) === currentActiveCn);
+    
+    // Badges
+    let badgesHtml = '';
+    if (!v.is_digital) {
+      badgesHtml += '<span class="v-badge v-badge-paper">Paper</span>';
+    } else {
+      badgesHtml += '<span class="v-badge v-badge-digital">Digital</span>';
+    }
+
+    if (v.finishes && v.finishes.includes('nonfoil')) {
+      badgesHtml += '<span class="v-badge" style="background:#E0E7FF; color:#3730A3; border-color:#6366F1;">Non-Foil</span>';
+    } else if (v.is_foil_only) {
+      badgesHtml += '<span class="v-badge v-badge-foil">Foil Only</span>';
+    }
+
+    if (v.has_planeswalker_stamp) {
+      badgesHtml += '<span class="v-badge v-badge-stamp">PW Stamp</span>';
+    }
+    if (v.has_date_stamp) {
+      badgesHtml += '<span class="v-badge v-badge-stamp">Date Stamp</span>';
+    }
+    if (v.promo_types && v.promo_types.length > 0) {
+      const pNote = v.promo_types[0].replace(/_/g, ' ');
+      badgesHtml += `<span class="v-badge v-badge-special">${escapeHtml(pNote)}</span>`;
+    }
+
+    const imgDisplay = v.image_url 
+      ? `<img src="${v.image_url}" alt="${escapeHtml(v.version_label)}" loading="lazy">`
+      : `<div style="font-family: var(--font-mono); font-size: 0.68rem; color: #888; text-align: center; padding: 10px;">No scan</div>`;
+
+    const actionHtml = isCurrent
+      ? `<div class="badge-current-chosen">[✓ CURRENT SELECTION]</div>`
+      : `<button type="button" class="btn-select-version" id="btn-select-v-${idx}" onclick="replaceTheReplacement(${idx})">[⚡ REPLACE THE REPLACEMENT]</button>`;
+
+    html += `
+      <div class="version-card-tile ${isCurrent ? 'is-current' : ''}">
+        <div class="version-card-img-wrap">
+          ${imgDisplay}
+        </div>
+        <div class="version-card-title">
+          <span>${v.set.toUpperCase()} #${v.collector_number}</span>
+          <span style="font-size: 0.72rem; color: #666;">${v.released_year || ''}</span>
+        </div>
+        <div class="version-card-sub" title="${escapeHtml(v.set_name)}">${escapeHtml(v.set_name)}</div>
+        <div class="version-badges-row">
+          ${badgesHtml}
+        </div>
+        ${actionHtml}
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function replaceTheReplacement(filteredIdx) {
+  const version = currentFilteredVersions[filteredIdx];
+  if (!version || !currentDeckId || currentDiagIdx === null) return;
+
+  const btn = document.getElementById(`btn-select-v-${filteredIdx}`);
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ SAVING...';
+  }
+
+  fetch(`/api/deck/${currentDeckId}/switch-version`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      item_idx: currentDiagIdx,
+      set: version.set,
+      cn: version.collector_number,
+      image_url: version.image_url,
+      version_label: version.version_label
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data && data.success) {
+      // 1. Update Chip
+      const chip = document.getElementById(`v2-chip-${currentDeckId}-${currentDiagIdx}`);
+      if (chip) {
+        chip.textContent = data.fixed_version_label || `${version.set.toUpperCase()} #${version.collector_number}`;
+      }
+
+      // 2. Update Red item label if present
+      const redLabel = document.getElementById(`substitute-label-${currentDeckId}-${currentDiagIdx}`);
+      if (redLabel) {
+        redLabel.textContent = `[Replace → ${version.set.toUpperCase()} #${version.collector_number}]`;
+      }
+
+      // 3. Update hidden input
+      const hiddenInput = document.getElementById(`input-v2-line-${currentDeckId}-${currentDiagIdx}`);
+      if (hiddenInput && data.fixed_line) {
+        hiddenInput.value = data.fixed_line;
+      }
+
+      // 4. Update Hover attributes on row
+      const row = document.getElementById(`replacement-row-${currentDeckId}-${currentDiagIdx}`) ||
+                  document.getElementById(`issue-row-${currentDeckId}-${currentDiagIdx}`);
+      if (row) {
+        if (data.fixed_image_url) {
+          row.dataset.v2Img = data.fixed_image_url;
+        }
+        row.dataset.v2Label = data.fixed_version_label || `${version.set.toUpperCase()} #${version.collector_number}`;
+        row.dataset.reason = data.message || `Replaced with ${version.set.toUpperCase()} #${version.collector_number}`;
+
+        // Flash row briefly with green outline
+        row.style.outline = '3px solid var(--accent-acid)';
+        row.style.transition = 'outline 0.3s ease';
+        setTimeout(() => {
+          row.style.outline = 'none';
+        }, 1500);
+      }
+
+      // 5. Close modal
+      closeVersionModal();
+
+      // 6. Show toast
+      showReplacementToast(`${version.set.toUpperCase()} #${version.collector_number}`);
+    } else {
+      alert((data && data.detail) || 'Failed to update replacement version.');
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '[⚡ REPLACE THE REPLACEMENT]';
+      }
+    }
+  })
+  .catch(() => {
+    alert('Network error while saving replacement version.');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '[⚡ REPLACE THE REPLACEMENT]';
+    }
+  });
+}
+
+function showReplacementToast(label) {
+  let toast = document.getElementById('replacement-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'replacement-toast';
+    toast.className = 'replacement-flash-toast';
+    document.body.appendChild(toast);
+  }
+
+  toast.innerHTML = `<span>✓</span> <span>Replacement updated to <strong>${escapeHtml(label)}</strong>!</span>`;
+  toast.style.display = 'flex';
+
+  setTimeout(() => {
+    if (toast) toast.style.display = 'none';
+  }, 3500);
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Global modal dismiss listeners
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeVersionModal();
+  }
+});
+
+document.addEventListener('click', (e) => {
+  const modal = document.getElementById('version-picker-modal');
+  if (modal && e.target === modal) {
+    closeVersionModal();
+  }
+});
+
+// Bind to window for global access
+window.openVersionPicker = openVersionPicker;
+window.closeVersionModal = closeVersionModal;
+window.setVersionFilter = setVersionFilter;
+window.filterCardVersions = filterCardVersions;
+window.replaceTheReplacement = replaceTheReplacement;
+
+
 

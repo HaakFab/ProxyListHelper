@@ -19,6 +19,7 @@ from ..models import Deck, Order
 from ..moxfield import extract_deck_cards, fetch_moxfield_deck, parse_pasted_text
 from ..pricing import compute_total_cents, format_cents_eur, get_pricing_settings
 from ..converter import format_card_line, process_deck_cards
+from ..scryfall import get_card_versions
 
 router = APIRouter()
 
@@ -234,9 +235,18 @@ def review_order(request: Request, order_id: str, lang: str = "en", db: Session 
     
     for d in order.decks:
         diagnostics = json.loads(d.diagnostics_json or "[]")
-        red_items = [diag for diag in diagnostics if diag.get("status") == "RED"]
-        yellow_items = [diag for diag in diagnostics if diag.get("status") == "YELLOW"]
-        green_items = [diag for diag in diagnostics if diag.get("status") == "GREEN"]
+        red_items = []
+        yellow_items = []
+        green_items = []
+        for idx, diag in enumerate(diagnostics):
+            diag["diag_idx"] = idx
+            st = diag.get("status")
+            if st == "RED":
+                red_items.append(diag)
+            elif st == "YELLOW":
+                yellow_items.append(diag)
+            elif st == "GREEN":
+                green_items.append(diag)
         if red_items:
             has_issues = True
             
@@ -256,6 +266,95 @@ def review_order(request: Request, order_id: str, lang: str = "en", db: Session 
         "rates": rates,
         "format_cents": format_cents_eur,
     })
+
+@router.get("/api/card-versions")
+def api_card_versions(name: str):
+    """Returns all Scryfall printings for a card to populate the version switcher modal."""
+    if not name or not name.strip():
+        return {"success": False, "versions": [], "error": "Missing card name"}
+    versions = get_card_versions(name.strip())
+    return {"success": True, "card_name": name.strip(), "versions": versions}
+
+@router.post("/api/deck/{deck_id}/switch-version")
+async def switch_deck_card_version(
+    deck_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Updates a card replacement in a deck with a user-selected printing."""
+    deck = db.query(Deck).filter(Deck.id == deck_id).first()
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    item_idx = body.get("item_idx")
+    new_set = (body.get("set") or "").lower().strip()
+    new_cn = str(body.get("cn") or "").strip()
+    new_img = body.get("image_url")
+    version_label = body.get("version_label") or f"{new_set.upper()} #{new_cn}"
+
+    if item_idx is None or not new_set or not new_cn:
+        raise HTTPException(status_code=400, detail="Missing item_idx, set, or cn")
+
+    diagnostics = json.loads(deck.diagnostics_json or "[]")
+    if item_idx < 0 or item_idx >= len(diagnostics):
+        raise HTTPException(status_code=400, detail="item_idx out of range")
+
+    item = diagnostics[item_idx]
+    qty = int(item.get("qty", 1))
+    card_name = item.get("name", "")
+
+    # Format new line
+    new_line = format_card_line(
+        qty, card_name, new_set, new_cn,
+        item.get("back_name"), item.get("back_set"), item.get("back_cn")
+    )
+
+    # Update item in diagnostics
+    item["set"] = new_set
+    item["cn"] = new_cn
+    item["suggested_set"] = new_set
+    item["suggested_cn"] = new_cn
+    item["fixed_line"] = new_line
+    if new_img:
+        item["fixed_image_url"] = new_img
+    item["fixed_version_label"] = version_label
+    item["user_custom_version"] = True
+    item["message"] = f"Replaced with user-selected version ({new_set.upper()} #{new_cn})."
+
+    # Rebuild deck converted_text
+    final_lines = [
+        f"// Deck: {deck.name}",
+        f"// Language: {deck.preferred_language}",
+    ]
+    for d in diagnostics:
+        line = d.get("fixed_line") or d.get("original_line")
+        if not line:
+            line = format_card_line(
+                int(d.get("qty", 1)), d.get("name", ""),
+                d.get("set"), d.get("cn"),
+                d.get("back_name"), d.get("back_set"), d.get("back_cn")
+            )
+        final_lines.append(str(line))
+    deck.converted_text = "\n".join(final_lines) + "\n"
+    deck.diagnostics_json = json.dumps(diagnostics)
+    db.commit()
+
+    return {
+        "success": True,
+        "deck_id": deck.id,
+        "item_idx": item_idx,
+        "set": new_set,
+        "cn": new_cn,
+        "fixed_line": new_line,
+        "fixed_version_label": version_label,
+        "fixed_image_url": item.get("fixed_image_url"),
+        "message": item["message"]
+    }
 
 @router.post("/review/{order_id}/resolve")
 async def resolve_review_issues(
@@ -287,6 +386,7 @@ async def resolve_review_issues(
             for idx, item in enumerate(diagnostics):
                 status = item.get("status")
                 action = form_data.get(f"action_{deck.id}_{idx}", "substitute")
+                custom_line = form_data.get(f"custom_v2_line_{deck.id}_{idx}")
                 qty = int(item.get("qty", 1))
                 name = item.get("name", "")
 
@@ -299,7 +399,7 @@ async def resolve_review_issues(
                         # Use suggested paper replacement
                         item["set"] = item["suggested_set"]
                         item["cn"] = item["suggested_cn"]
-                        line = format_card_line(qty, name, item["set"], item["cn"],
+                        line = custom_line or format_card_line(qty, name, item["set"], item["cn"],
                                                 item.get("back_name"), item.get("back_set"), item.get("back_cn"))
                         final_lines.append(line)
                         deck_card_count += qty
@@ -311,7 +411,7 @@ async def resolve_review_issues(
                         deck_card_count += qty
                 else:
                     # Green or Yellow
-                    line = item.get("fixed_line") or item.get("original_line")
+                    line = custom_line or item.get("fixed_line") or item.get("original_line")
                     if not line:
                         line = format_card_line(qty, name, item.get("set"), item.get("cn"),
                                                 item.get("back_name"), item.get("back_set"), item.get("back_cn"))
