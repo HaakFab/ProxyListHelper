@@ -8,7 +8,79 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=20261016_void">
+  <style>
+    /* Inline fail-safe styling for Void Mode & Toggle Button */
+    .darkmode-btn {
+      border: 2px solid var(--border-dark, #2E2E34);
+      background: var(--bg-surface, #1C1C20);
+      color: var(--text-light, #F4F0EA);
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      font-size: 0.74rem;
+      font-weight: 800;
+      padding: 6px 12px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 2px 2px 0px #000000;
+      line-height: 1.2;
+      transition: all 0.15s ease;
+    }
+    .darkmode-btn:hover {
+      border-color: #CCFF00 !important;
+      color: #CCFF00 !important;
+    }
+    :root.dark-void, html.dark-void, body.dark-void {
+      --bg-canvas: #000000 !important;
+      --bg-surface: #040405 !important;
+      --bg-paper: #040405 !important;
+      --text-light: #F4F4F4 !important;
+      --text-dark: #F4F4F4 !important;
+      --text-muted: #666666 !important;
+      --border-dark: #1A1A1A !important;
+      --border-ink: #222222 !important;
+      --bg-input: #000000 !important;
+      --border-card: #222222 !important;
+    }
+    .dark-void body.cutting-mat-workspace {
+      background-color: #000000 !important;
+      background-image: 
+        linear-gradient(to right, #0A0A0A 1px, transparent 1px),
+        linear-gradient(to bottom, #0A0A0A 1px, transparent 1px) !important;
+      color: #F4F4F4 !important;
+    }
+    .dark-void .darkmode-btn {
+      border-color: #CCFF00 !important;
+      background: #000000 !important;
+      color: #CCFF00 !important;
+      box-shadow: 0 0 12px rgba(204, 255, 0, 0.4), 2px 2px 0px #000000 !important;
+    }
+    .dark-void .glass-card,
+    .dark-void .deck-sheet-card {
+      background: #030304 !important;
+      color: #F4F4F4 !important;
+      border: 2px solid #1E1E22 !important;
+      box-shadow: 8px 8px 0px #000000, 0 0 30px rgba(0, 0, 0, 0.95) !important;
+    }
+    .dark-void .form-input,
+    .dark-void .form-select,
+    .dark-void .form-textarea {
+      background-color: #000000 !important;
+      color: #FFFFFF !important;
+      border-color: #2A2A2A !important;
+    }
+    .dark-void .tab-btn {
+      color: #F4F4F4 !important;
+      background: #000000 !important;
+    }
+    .dark-void .tab-btn.active {
+      background: #111111 !important;
+      color: #CCFF00 !important;
+    }
+  </style>
   <script>
     (function() {
       try {
@@ -18,6 +90,33 @@
         }
       } catch (e) {}
     })();
+
+    function toggleDarkMode() {
+      const isVoid = document.documentElement.classList.toggle('dark-void');
+      if (document.body) {
+        document.body.classList.toggle('dark-void', isVoid);
+      }
+      try {
+        localStorage.setItem('theme', isVoid ? 'void' : 'paper');
+      } catch (e) {}
+      updateDarkModeButtonState();
+    }
+
+    function updateDarkModeButtonState() {
+      const isVoid = document.documentElement.classList.contains('dark-void');
+      const tag = document.getElementById('darkmode-state-tag');
+      const btn = document.getElementById('darkmode-toggle');
+      if (tag) {
+        tag.textContent = isVoid ? '[⚡ VOID: MAX DARK]' : '[🌑 VOID]';
+      }
+      if (btn) {
+        btn.setAttribute('aria-pressed', isVoid ? 'true' : 'false');
+      }
+    }
+
+    window.toggleDarkMode = toggleDarkMode;
+    window.updateDarkModeButtonState = updateDarkModeButtonState;
+    document.addEventListener('DOMContentLoaded', updateDarkModeButtonState);
   </script>
   {% block extra_head %}{% endblock %}
 </head>
@@ -89,7 +188,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=20261016_void"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
