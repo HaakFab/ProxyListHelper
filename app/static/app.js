@@ -386,25 +386,48 @@ function initCardHoverTooltip() {
 
   let activeEl = null;
 
+  function hideCardTooltip() {
+    activeEl = null;
+    if (tooltip) {
+      tooltip.style.display = 'none';
+    }
+  }
+  window.hideCardTooltip = hideCardTooltip;
+
   function positionTooltip(e) {
-    const pad = 16;
-    const tooltipWidth = tooltip.offsetWidth || 340;
-    const tooltipHeight = tooltip.offsetHeight || 300;
+    const pad = 10;
+    const tooltipWidth = tooltip.offsetWidth || 240;
+    const tooltipHeight = tooltip.offsetHeight || 220;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    let x = e.clientX + pad;
-    let y = e.clientY - Math.floor(tooltipHeight / 2);
+    let x, y;
 
-    if (x + tooltipWidth > viewportWidth - pad) {
-      x = e.clientX - tooltipWidth - pad;
-    }
-    if (x < pad) x = pad;
+    if (viewportWidth <= 768) {
+      // Mobile screen: keep tooltip docked to the left margin so right-side switch button is unobstructed
+      x = pad;
+      // Position vertically slightly above or below touch point, clamped within viewport
+      y = e.clientY - tooltipHeight - 12;
+      if (y < pad) {
+        y = e.clientY + 20;
+      }
+      if (y + tooltipHeight > viewportHeight - pad) {
+        y = Math.max(pad, viewportHeight - tooltipHeight - pad);
+      }
+    } else {
+      x = e.clientX + 16;
+      y = e.clientY - Math.floor(tooltipHeight / 2);
 
-    if (y + tooltipHeight > viewportHeight - pad) {
-      y = viewportHeight - tooltipHeight - pad;
+      if (x + tooltipWidth > viewportWidth - 16) {
+        x = e.clientX - tooltipWidth - 16;
+      }
+      if (x < 16) x = 16;
+
+      if (y + tooltipHeight > viewportHeight - 16) {
+        y = viewportHeight - tooltipHeight - 16;
+      }
+      if (y < 16) y = 16;
     }
-    if (y < pad) y = pad;
 
     tooltip.style.left = `${x}px`;
     tooltip.style.top = `${y}px`;
@@ -507,6 +530,19 @@ function initCardHoverTooltip() {
       tooltip.style.display = 'none';
     }
   });
+
+  // Clicking or touching ANY switch version button ALWAYS immediately hides the preview tooltip
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.btn-switch-version') || e.target.closest('.btn-select-version') || e.target.closest('.modal-overlay')) {
+      hideCardTooltip();
+    }
+  }, true);
+
+  document.addEventListener('touchstart', (e) => {
+    if (e.target.closest('.btn-switch-version') || e.target.closest('.btn-select-version')) {
+      hideCardTooltip();
+    }
+  }, { passive: true, capture: true });
 }
 
 // ==========================================
@@ -523,6 +559,12 @@ let currentFilteredVersions = [];
 let currentActiveFilter = 'all';
 
 function openVersionPicker(deckId, diagIdx, cardName, currentSet, currentCn) {
+  if (typeof window.hideCardTooltip === 'function') {
+    window.hideCardTooltip();
+  }
+  const tt = document.getElementById('card-hover-tooltip');
+  if (tt) tt.style.display = 'none';
+
   currentDeckId = deckId;
   currentDiagIdx = diagIdx;
   currentCardName = cardName;
@@ -739,6 +781,12 @@ function replaceTheReplacement(filteredIdx) {
       const chip = document.getElementById(`v2-chip-${currentDeckId}-${currentDiagIdx}`);
       if (chip) {
         chip.textContent = data.fixed_version_label || `${version.set.toUpperCase()} #${version.collector_number}`;
+      }
+
+      // 1b. Update Mobile switch version button label
+      const mobileBtn = document.getElementById(`switch-btn-mobile-${currentDeckId}-${currentDiagIdx}`);
+      if (mobileBtn) {
+        mobileBtn.textContent = `⇄ ${version.set.toUpperCase()} #${version.collector_number}`;
       }
 
       // 2. Update Red item label if present

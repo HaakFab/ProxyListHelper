@@ -221,17 +221,18 @@ def find_clean_paper_fallback(
     card_name: str,
     prefer_nonfoil: bool = True,
     avoid_stamped: bool = True,
-    avoid_datestamped: bool = True
+    avoid_datestamped: bool = True,
+    preferred_set: Optional[str] = None
 ) -> Optional[dict]:
     """
     Finds a standard paper printing for a card name.
-    Prioritizes non-foil, non-stamped, non-digital releases.
+    Prioritizes same-set printing if available, and non-foil, non-stamped, non-digital releases.
     Properly URL-encodes queries to prevent Scryfall 400 Bad Request errors.
     """
     clean_name = card_name.split(" // ")[0].strip()
     clean_name = clean_name.replace("’", "'").replace("‘", "'").replace("—", "-").replace("–", "-")
     
-    # 1. Primary strict search: paper, non-digital, and user-selected filters
+    # Base strict search parameters: paper, non-digital, and user-selected filters
     query_parts = [f'!\"{clean_name}\"', "game:paper", "not:digital"]
     if prefer_nonfoil:
         query_parts.append("is:nonfoil")
@@ -239,6 +240,16 @@ def find_clean_paper_fallback(
         query_parts.append("-is:stamped")
     if avoid_datestamped:
         query_parts.append("-is:datestamped")
+
+    # 0. Same-set priority: if a preferred set is specified, try same set in non-foil first
+    if preferred_set:
+        clean_set = preferred_set.strip().lower()
+        if clean_set:
+            same_set_query = query_parts + [f"s:{clean_set}"]
+            params_set = urllib.parse.urlencode({"q": " ".join(same_set_query), "order": "released", "dir": "desc"})
+            data_set = _scryfall_get(f"https://api.scryfall.com/cards/search?{params_set}")
+            if data_set and "data" in data_set and len(data_set["data"]) > 0:
+                return data_set["data"][0]
         
     params = urllib.parse.urlencode({"q": " ".join(query_parts), "order": "released", "dir": "desc"})
     url = f"https://api.scryfall.com/cards/search?{params}"

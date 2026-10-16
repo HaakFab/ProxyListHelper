@@ -279,12 +279,28 @@ class ScryfallBatchValidator:
                 scryfall_uri=None
             ))
 
-    def _find_nonfoil_fallback(self, card_name: str) -> Optional[dict]:
-        """Looks up whether a non-foil paper printing exists for this card name."""
+    def _find_nonfoil_fallback(self, card_name: str, preferred_set: Optional[str] = None) -> Optional[dict]:
+        """Looks up whether a non-foil paper printing exists for this card name, preferring the same set if specified."""
         clean_name = card_name.split(" // ")[0].strip()
-        cached = self.cache.get(NONFOIL, clean_name)
+        cache_key = f"{clean_name}__set_{preferred_set.lower()}" if preferred_set else clean_name
+        cached = self.cache.get(NONFOIL, cache_key)
         if cached is not None:
             return cached
+
+        # 0. Try same set first if preferred_set provided
+        if preferred_set:
+            time.sleep(0.08)
+            try:
+                url_set = f"https://api.scryfall.com/cards/search?q=!%22{requests.utils.quote(clean_name)}%22+s:{preferred_set.strip().lower()}+is:nonfoil+game:paper&order=released&dir=desc"
+                r_set = requests.get(url_set, headers=API_HEADERS, timeout=12)
+                if r_set.status_code == 200:
+                    data_set = r_set.json()
+                    if "data" in data_set and len(data_set["data"]) > 0:
+                        cand = data_set["data"][0]
+                        self.cache.put(NONFOIL, cache_key, cand)
+                        return cand
+            except Exception:
+                pass
 
         time.sleep(0.08)
         try:
@@ -294,7 +310,7 @@ class ScryfallBatchValidator:
                 data = r.json()
                 if "data" in data and len(data["data"]) > 0:
                     cand = data["data"][0]
-                    self.cache.put(NONFOIL, clean_name, cand)
+                    self.cache.put(NONFOIL, cache_key, cand)
                     return cand
         except Exception:
             pass
@@ -367,7 +383,7 @@ class ScryfallBatchValidator:
         # 2. Foil-only printing
         finishes = meta.get("finishes", [])
         if finishes and all(f in ("foil", "etched") for f in finishes):
-            nonfoil_meta = self._find_nonfoil_fallback(name)
+            nonfoil_meta = self._find_nonfoil_fallback(name, preferred_set=card.set_code or meta.get("set"))
             if nonfoil_meta and "nonfoil" in nonfoil_meta.get("finishes", []):
                 nf_set = nonfoil_meta.get("set", "").upper()
                 nf_cn = nonfoil_meta.get("collector_number", "")

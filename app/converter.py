@@ -275,7 +275,8 @@ def process_deck_cards(
                 name,
                 prefer_nonfoil=convert_foils,
                 avoid_stamped=True,
-                avoid_datestamped=replace_date_stamps
+                avoid_datestamped=replace_date_stamps,
+                preferred_set=set_code
             )
             if clean_fallback:
                 fb_set = clean_fallback.get("set", "").lower()
@@ -307,7 +308,8 @@ def process_deck_cards(
                 name,
                 prefer_nonfoil=convert_foils,
                 avoid_stamped=replace_stamps,
-                avoid_datestamped=True
+                avoid_datestamped=True,
+                preferred_set=set_code
             )
             if clean_fallback:
                 fb_set = clean_fallback.get("set", "").lower()
@@ -339,7 +341,8 @@ def process_deck_cards(
                 name,
                 prefer_nonfoil=True,
                 avoid_stamped=replace_stamps,
-                avoid_datestamped=replace_date_stamps
+                avoid_datestamped=replace_date_stamps,
+                preferred_set=set_code
             )
             if nonfoil_fallback:
                 fb_set = nonfoil_fallback.get("set", "").lower()

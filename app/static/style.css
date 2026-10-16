@@ -1234,6 +1234,101 @@ body.cutting-mat-workspace, body {
     flex: 1;
     text-align: center;
   }
+
+  /* Mobile Review Screen: compact card replacement rows */
+  .change-item-row {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 6px 10px !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .change-item-left {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    overflow: hidden !important;
+  }
+
+  .change-item-left strong {
+    font-size: 0.78rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .change-item-left .badge-yellow {
+    font-size: 0.60rem !important;
+    padding: 2px 5px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .compare-chips {
+    gap: 4px !important;
+    flex-shrink: 0 !important;
+    margin-left: auto !important;
+  }
+
+  /* Hide original / replaced chips and arrow on mobile review */
+  .compare-chips .version-chip-v1,
+  .compare-chips .chip-arrow,
+  .compare-chips .version-chip-v2 {
+    display: none !important;
+  }
+
+  /* Mobile switch version button displays symbol and version only */
+  .switch-btn-desktop {
+    display: none !important;
+  }
+
+  .switch-btn-mobile {
+    display: inline !important;
+  }
+
+  .btn-switch-version {
+    padding: 3px 7px !important;
+    font-size: 0.70rem !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Mobile Card Preview Hover Tooltip: compact sizing and left docked */
+  .card-hover-tooltip {
+    max-width: 240px !important;
+    padding: 8px 10px !important;
+    box-shadow: 4px 4px 0px #000000 !important;
+    left: 10px !important;
+    pointer-events: none !important;
+  }
+
+  .tooltip-cards-row {
+    gap: 6px !important;
+  }
+
+  .tooltip-card-box {
+    width: 80px !important;
+    gap: 3px !important;
+  }
+
+  .tooltip-card-label {
+    font-size: 0.58rem !important;
+  }
+
+  .tooltip-img-wrap {
+    width: 78px !important;
+    height: 109px !important;
+    box-shadow: 2px 2px 0px #000000 !important;
+  }
+
+  .tooltip-reason {
+    font-size: 0.62rem !important;
+    padding: 3px 6px !important;
+  }
 }
 
 /* Switch Card Version Button & Modal */
@@ -1261,6 +1356,20 @@ body.cutting-mat-workspace, body {
   color: var(--accent-acid);
   box-shadow: none;
   transform: translate(1px, 1px);
+}
+
+.switch-btn-desktop {
+  display: inline;
+}
+
+.switch-btn-mobile {
+  display: none;
+}
+
+.chip-arrow {
+  display: inline-block;
+  font-weight: 900;
+  color: #111;
 }
 
 .version-picker-card {
@@ -1917,6 +2026,45 @@ body.cutting-mat-workspace, body {
 .dark-void .btn-primary *,
 .dark-void .tab-btn.active *,
 .dark-void .lang-btn.active * {
+  color: #000000 !important;
+}
+
+/* ==========================================================================
+   Dark Mode Font Color on Green Boxes / Badges -> BLACK (#000000)
+   Applies to both mobile and desktop (PC)
+   ========================================================================== */
+.dark-void .badge-green,
+.dark-void .badge-success,
+.dark-void .badge-current-chosen,
+.dark-void .v-badge-paper,
+.dark-void .alert-success,
+.dark-void [style*="background: #ECFDF5"],
+.dark-void [style*="background:#ECFDF5"],
+.dark-void [style*="background: #D1FAE5"],
+.dark-void [style*="background:#D1FAE5"],
+.dark-void [style*="background: #10B981"],
+.dark-void [style*="background:#10B981"],
+.dark-void [style*="background: #059669"],
+.dark-void [style*="background:#059669"],
+.dark-void [style*="background: var(--green)"],
+.dark-void [style*="background:var(--green)"] {
+  color: #000000 !important;
+  font-weight: 800 !important;
+}
+
+.dark-void .badge-green *,
+.dark-void .badge-success *,
+.dark-void .badge-current-chosen *,
+.dark-void .v-badge-paper *,
+.dark-void .alert-success *,
+.dark-void [style*="background: #ECFDF5"] *,
+.dark-void [style*="background:#ECFDF5"] *,
+.dark-void [style*="background: #D1FAE5"] *,
+.dark-void [style*="background:#D1FAE5"] *,
+.dark-void [style*="background: #10B981"] *,
+.dark-void [style*="background:#10B981"] *,
+.dark-void [style*="background: #059669"] *,
+.dark-void [style*="background:#059669"] * {
   color: #000000 !important;
 }
 

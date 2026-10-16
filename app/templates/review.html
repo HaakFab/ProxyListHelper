@@ -66,7 +66,8 @@
             <button type="button" class="btn btn-switch-version"
                     onclick="openVersionPicker({{ p.deck.id }}, {{ item.diag_idx }}, '{{ item.name|escape }}', '{{ item.suggested_set or '' }}', '{{ item.suggested_cn or '' }}')"
                     title="{{ t('switch_version_tooltip') }}">
-              ⇄ {{ t('switch_card_version') }}
+              <span class="switch-btn-desktop">⇄ {{ t('switch_card_version') }}</span>
+              <span class="switch-btn-mobile" id="switch-btn-mobile-{{ p.deck.id }}-{{ item.diag_idx }}">⇄ {{ (item.suggested_set or '')|upper }} #{{ item.suggested_cn or '' }}</span>
             </button>
             <input type="hidden" name="custom_v2_line_{{ p.deck.id }}_{{ item.diag_idx }}" id="input-v2-line-{{ p.deck.id }}-{{ item.diag_idx }}" value="{{ item.fixed_line or '' }}">
             {% endif %}
@@ -102,19 +103,20 @@
                    data-v1-label="{{ item.original_version_label or item.original_line }}"
                    data-v2-label="{{ item.fixed_version_label or item.fixed_line }}"
                    data-reason="{{ item.message }}">
-                <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px;">
+                <div class="change-item-left" style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px;">
                   <span class="badge badge-yellow" style="font-size: 0.68rem;">{{ (item.category or 'MODIFIED').replace('_', ' ') }}</span>
                   <strong style="font-family: var(--font-mono);">{{ item.qty }}x {{ item.name }}</strong>
                 </div>
                 <div class="compare-chips" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                   <span class="version-chip version-chip-v1">{{ item.original_version_label or 'V1: Requested' }}</span>
-                  <span style="font-weight: 900; color: #111;">&rarr;</span>
+                  <span class="chip-arrow" style="font-weight: 900; color: #111;">&rarr;</span>
                   <span class="version-chip version-chip-v2" id="v2-chip-{{ p.deck.id }}-{{ item.diag_idx }}">{{ item.fixed_version_label or 'V2: Replaced' }}</span>
                   
                   <button type="button" class="btn btn-switch-version"
                           onclick="openVersionPicker({{ p.deck.id }}, {{ item.diag_idx }}, '{{ item.name|escape }}', '{{ item.set or item.suggested_set or '' }}', '{{ item.cn or item.suggested_cn or '' }}')"
                           title="{{ t('switch_version_tooltip') }}">
-                    ⇄ {{ t('switch_card_version') }}
+                    <span class="switch-btn-desktop">⇄ {{ t('switch_card_version') }}</span>
+                    <span class="switch-btn-mobile" id="switch-btn-mobile-{{ p.deck.id }}-{{ item.diag_idx }}">⇄ {{ (item.suggested_set or item.set or 'V2')|upper }} #{{ item.suggested_cn or item.cn }}</span>
                   </button>
                   <input type="hidden" name="custom_v2_line_{{ p.deck.id }}_{{ item.diag_idx }}" id="input-v2-line-{{ p.deck.id }}-{{ item.diag_idx }}" value="{{ item.fixed_line }}">
                 </div>

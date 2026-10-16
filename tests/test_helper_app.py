@@ -853,5 +853,27 @@ def test_switch_card_version_api_and_review_flow(client):
     assert "1 Hoarding Broodlord (MOM) 360" in deck.converted_text
 
 
+def test_same_set_nonfoil_priority():
+    from unittest.mock import patch
+    from app.scryfall import find_clean_paper_fallback
 
+    # Mock _scryfall_get to verify queries
+    queries_made = []
 
+    def mock_scryfall_get(url):
+        queries_made.append(url)
+        if "s%3Acmm" in url or "s:cmm" in url:
+            return {
+                "data": [
+                    {"set": "cmm", "collector_number": "100", "name": "Sol Ring", "finishes": ["nonfoil"]}
+                ]
+            }
+        return {"data": [{"set": "lea", "collector_number": "269", "name": "Sol Ring", "finishes": ["nonfoil"]}]}
+
+    with patch("app.scryfall._scryfall_get", side_effect=mock_scryfall_get):
+        res = find_clean_paper_fallback("Sol Ring", prefer_nonfoil=True, preferred_set="CMM")
+        assert res is not None
+        assert res["set"] == "cmm"
+        assert res["collector_number"] == "100"
+        # First query should be same-set search
+        assert "s%3Acmm" in queries_made[0] or "s:cmm" in queries_made[0]
