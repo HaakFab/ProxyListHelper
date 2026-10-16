@@ -1,0 +1,46 @@
+{$PORTAL_DOMAIN} {
+	encode zstd gzip
+
+	# 2 MB caps the largest thing this app accepts (a best-effort PDF upload
+	# for Phase 3; the plain-text submission path caps far lower on its own,
+	# see portal/checking.py MAX_TEXT_BYTES). Reject oversized bodies here,
+	# before they ever reach the app.
+	request_body {
+		max_size 2MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Robots-Tag "noindex, nofollow"
+		# 'self' only: HTMX/any future JS is self-hosted, no inline scripts,
+		# no third-party CDN -- see portal_implementation.md §16 (no CDN,
+		# no analytics -- part of why this site needs no cookie banner).
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'"
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10MB
+			roll_keep 5
+		}
+		# IPs truncated at rest (/24 IPv4, /48 IPv6) -- portal_implementation.md
+		# §16 logging discipline.
+		format filter {
+			wrap console
+			fields {
+				request>remote_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>client_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+			}
+		}
+	}
+
+	reverse_proxy web:8000
+}

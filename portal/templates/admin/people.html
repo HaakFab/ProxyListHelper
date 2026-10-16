@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Personen{% endblock %}
+{% block content %}
+
+{% if new_link %}
+<div class="card" style="border-color:var(--accent);">
+  <h2>Link für {{ new_link_for }}</h2>
+  <p><code style="word-break:break-all;">{{ new_link }}</code></p>
+  <p class="help">Diesen Link jetzt kopieren und der Person schicken — er wird nicht erneut angezeigt.</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <h1>Personen</h1>
+  <table>
+    <tr><th>Name</th><th>Kennung</th><th>E-Mail</th><th></th></tr>
+    {% for p in people %}
+    <tr>
+      <td>{{ p.display_name }}{% if p.is_admin %} <span class="badge muted">Admin</span>{% endif %}{% if p.is_blocked %} <span class="badge red">gesperrt</span>{% endif %}</td>
+      <td>{{ p.person_slug }}</td>
+      <td>{{ p.email or "—" }}</td>
+      <td>
+        <form method="post" action="/admin/people/{{ p.id }}/new-link" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="secondary" style="font-size:0.8rem;padding:0.2rem 0.5rem;">Neuer Link</button>
+        </form>
+        <form method="post" action="/admin/people/{{ p.id }}/block" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="secondary" style="font-size:0.8rem;padding:0.2rem 0.5rem;">
+            {{ "Entsperren" if p.is_blocked else "Sperren" }}
+          </button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card">
+  <h2>Neue Person</h2>
+  <form method="post" action="/admin/people/new">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="display_name">Name (wie auf den Trennkarten)</label>
+    <input type="text" id="display_name" name="display_name" required>
+    <p style="margin-top:1rem;"><button type="submit">Anlegen &amp; Link erstellen</button></p>
+  </form>
+</div>
+{% endblock %}

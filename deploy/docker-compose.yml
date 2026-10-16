@@ -1,0 +1,67 @@
+# Two long-running services (caddy, web) + one periodic backup job.
+# `docker compose up -d` from this directory is the whole deployment.
+# See ../deploy/SETUP.md and ../deploy/ACCOUNT-SETUP.md for the full runbook.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    environment:
+      - PORTAL_DOMAIN=${PORTAL_DOMAIN:?PORTAL_DOMAIN must be set in .env}
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Overrides the package default (./data/portal.db) with the absolute
+      # in-container path matching the mounted volume below.
+      - DATABASE_URL=sqlite:////data/portal.db
+    volumes:
+      - portal_data:/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Hourly SQLite backup, age-encrypted, kept for 14 days. Restores are
+  # `deploy/restore.sh` on a fresh volume -- see SETUP.md's closing-a-round
+  # runbook, which stresses verifying a restore before ever destroying a server.
+  backup:
+    image: alpine:3.20
+    restart: unless-stopped
+    volumes:
+      - portal_data:/data:ro
+      - ./backups:/backups
+      - ./backup.sh:/backup.sh:ro
+    environment:
+      - AGE_RECIPIENT=${BACKUP_AGE_PUBLIC_KEY:?BACKUP_AGE_PUBLIC_KEY must be set in .env}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        apk add --no-cache sqlite age >/dev/null
+        while true; do
+          sh /backup.sh || echo "backup failed, will retry next cycle"
+          sleep 3600
+        done
+
+volumes:
+  portal_data:
+  caddy_data:
+  caddy_config:

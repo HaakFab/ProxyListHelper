@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Bestellungen{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Bestellungen{% if round %} — {{ round.name }}{% endif %}</h1>
+
+  {% for o in orders %}
+  <div class="card">
+    <p>
+      <strong>{{ o.user.display_name }}</strong> —
+      <code>{{ o.reference_code }}</code> —
+      <span class="badge {{ o.state | order_badge }}">{{ o.state | order_label }}</span>
+    </p>
+    {% if o.price_snapshot %}
+      <p>Betrag: {{ o.price_snapshot.total_cents | eur }} —
+         Bezahlt: {{ (o.price_snapshot.total_cents - balances[o.id]) | eur }} —
+         {% if balances[o.id] > 0 %}Offen: {{ balances[o.id] | eur }}
+         {% elif balances[o.id] < 0 %}Guthaben: {{ (-balances[o.id]) | eur }}
+         {% else %}Ausgeglichen{% endif %}</p>
+    {% endif %}
+
+    {% if o.payments %}
+      <table>
+        <tr><th>Datum</th><th>Betrag</th><th>Art</th><th>Notiz</th></tr>
+        {% for p in o.payments %}
+        <tr><td>{{ p.received_on }}</td><td>{{ p.amount_cents | eur }}</td><td>{{ p.kind }}</td><td>{{ p.note or "" }}</td></tr>
+        {% endfor %}
+      </table>
+    {% endif %}
+
+    {% if o.state in ("LOCKED", "PARTIALLY_PAID") %}
+    <form method="post" action="/admin/orders/{{ o.id }}/record-payment">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:end;">
+        <div><label for="amount-{{ o.id }}">Betrag (Cent)</label>
+          <input type="number" id="amount-{{ o.id }}" name="amount_cents"
+                 value="{{ o.price_snapshot.total_cents if o.price_snapshot else '' }}" required></div>
+        <div><label for="date-{{ o.id }}">Datum</label>
+          <input type="date" id="date-{{ o.id }}" name="received_on" value="{{ today }}" required></div>
+        <div><label for="kind-{{ o.id }}">Art</label>
+          <select id="kind-{{ o.id }}" name="kind">
+            <option value="PAYPAL">PayPal</option>
+            <option value="CASH">Bar</option>
+            <option value="ADJUSTMENT">Korrektur</option>
+          </select></div>
+        <div style="flex:1;"><label for="note-{{ o.id }}">Notiz</label>
+          <input type="text" id="note-{{ o.id }}" name="note"></div>
+        <div><button type="submit">Als bezahlt vermerken</button></div>
+      </div>
+    </form>
+    {% endif %}
+
+    <div style="margin-top:0.5rem;">
+      {% if o.state in ("LOCKED", "PARTIALLY_PAID", "PAID", "FROZEN") %}
+      <form method="post" action="/admin/orders/{{ o.id }}/unlock" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="secondary" style="font-size:0.85rem;">Entsperren</button>
+      </form>
+      {% endif %}
+      {% if o.state == "PAID" %}
+      <form method="post" action="/admin/orders/{{ o.id }}/freeze" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="secondary" style="font-size:0.85rem;">Einfrieren (für Druck)</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <p>Keine Bestellungen.</p>
+  {% endfor %}
+</div>
+{% endblock %}

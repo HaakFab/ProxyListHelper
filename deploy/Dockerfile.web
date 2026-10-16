@@ -1,0 +1,38 @@
+# The portal server image. Deliberately small: no torch/Pillow/reportlab/
+# numpy/scipy ever get installed here -- see requirements-web.txt. The print
+# pipeline runs on Fabian's Mac (requirements-worker.txt), never in this image.
+FROM python:3.12-slim AS base
+
+# Build tooling only exists in an intermediate layer -- argon2-cffi needs a
+# C compiler to build its wheel on some platforms, but the final image ships
+# no compiler at all.
+FROM base AS builder
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /build
+COPY requirements-web.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements-web.txt
+
+FROM base
+RUN groupadd -r portal && useradd -r -g portal -d /app portal
+COPY --from=builder /install /usr/local
+
+WORKDIR /app
+# Only the two packages the portal actually imports -- proxy_parser.checker /
+# proxy_parser.moxfield_line (never proxy_parser's heavy top-level names,
+# which are lazy-loaded and never touched here) and portal/ itself.
+COPY proxy_parser/ ./proxy_parser/
+COPY portal/ ./portal/
+COPY alembic.ini .
+
+RUN mkdir -p /data && chown portal:portal /data
+VOLUME ["/data"]
+
+USER portal
+EXPOSE 8000
+
+# Runs migrations, seeds default settings + the admin account, then serves.
+# --workers 1: SQLite plus the in-process job thread want a single process
+# (see portal/jobs.py) -- ample for this project's scale (~30 users).
+CMD ["sh", "-c", "alembic upgrade head && python -m portal.cli bootstrap && uvicorn portal.main:app --host 0.0.0.0 --port 8000 --workers 1"]

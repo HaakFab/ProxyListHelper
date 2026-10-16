@@ -1,0 +1,49 @@
+# --- Personal data: decklists are submitted by real people and the filenames
+# --- carry their names. Never commit these.
+input/
+input_final/
+INPUT FOR  TEST/
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# --- Secrets
+.env
+.env.*
+!.env.example
+
+# --- Large generated artefacts and caches
+output/
+scryfall_cache/
+upscaled_cache/
+mpc_cache/
+weights/
+backs/
+.cache/
+*.pdf
+card_totals_summary.csv
+deck_check_report.md
+deck_check_summary.csv
+card_issues_detail.csv
+
+# --- Python
+__pycache__/
+*.py[cod]
+.venv/
+.venv-web/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# --- macOS
+.DS_Store
+
+# --- Local tooling
+.claude/settings.local.json
+
+# --- Deploy-time secrets and local backup staging (deploy/backup.sh writes
+# encrypted copies here before they're scp'd off the server -- see
+# deploy/ACCOUNT-SETUP.md)
+backups/

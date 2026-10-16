@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>{{ t("title") }} | ProxyListHelper</title>
+  <meta name="description" content="Convert Moxfield MTG decklists into print-ready files with intelligent auto-fixing, custom backs, and language selection.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a href="/?lang={{ lang }}" class="logo-link">
+        <span class="logo-badge">MTG</span>
+        <span>ProxyListHelper</span>
+      </a>
+
+      <div class="nav-actions">
+        <div class="lang-switch">
+          <a href="?lang=en" class="lang-btn {% if lang == 'en' %}active{% endif %}">EN</a>
+          <a href="?lang=de" class="lang-btn {% if lang == 'de' %}active{% endif %}">DE</a>
+        </div>
+        <a href="/admin?lang={{ lang }}" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-left: 8px;">Admin</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>ProxyListHelper &bull; Private &amp; Non-Commercial Community Tool</p>
+      <p style="margin-top: 4px; color: var(--text-dim);">Wizards of the Coast and Magic: The Gathering are trademarks of Hasbro, Inc. This tool is not affiliated with Scryfall or Moxfield.</p>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

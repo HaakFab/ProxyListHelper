@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Neue Liste{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Neue Liste einreichen</h1>
+  {% if round %}
+  <form method="post" action="/lists/new">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="title">Titel deiner Liste</label>
+    <input type="text" id="title" name="title" placeholder="z. B. Commander-Deck" value="{{ title | default('') }}" required>
+
+    <label for="raw_text">Kartenliste (Moxfield-Export einfügen)</label>
+    <textarea id="raw_text" name="raw_text" placeholder="1 Sol Ring (LEA) 1&#10;1 Lightning Bolt (LEA) 161" required>{{ raw_text | default('') }}</textarea>
+    <p class="help">Format: Anzahl, Kartenname, optional (Set) Sammelnummer — pro Zeile eine Karte.</p>
+
+    <p style="margin-top:1rem;"><button type="submit">Liste einreichen &amp; prüfen</button></p>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

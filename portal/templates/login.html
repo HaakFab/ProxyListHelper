@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Anmelden{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Anmelden</h1>
+  <p>Nutze diesen Weg nur, wenn du deinen persönlichen Anmeldelink verloren hast. Andernfalls
+     nutze bitte den Link, den du erhalten hast.</p>
+  <form method="post" action="/login">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="person_slug">Name (wie auf den Trennkarten)</label>
+    <input type="text" id="person_slug" name="person_slug" required>
+    <label for="access_code">Zugangscode</label>
+    <input type="password" id="access_code" name="access_code" required>
+    <p style="margin-top:1rem;"><button type="submit">Anmelden</button></p>
+  </form>
+</div>
+{% endblock %}

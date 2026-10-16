@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+  <h1>{{ t("review_title") }}</h1>
+  <p>{{ t("review_subtitle") }}</p>
+</div>
+
+<form action="/review/{{ order.order_id }}/resolve" method="POST">
+  <input type="hidden" name="ui_lang" value="{{ lang }}">
+
+  {% for p in parsed_decks %}
+  <div class="glass-card">
+    <div class="card-header-bar">
+      <div>
+        <span class="deck-tag">Deck #{{ p.deck.ordinal }}</span>
+        <strong style="margin-left: 10px; font-size: 1.1rem;">{{ p.deck.name }}</strong>
+        <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 8px;">
+          ({{ p.deck.card_count }} cards &bull; Lang: {{ p.deck.preferred_language.upper() }})
+        </span>
+      </div>
+
+      {% if p.red_items %}
+        <span class="badge badge-red">🔴 {{ p.red_items|length }} {{ t("issues_cards") }}</span>
+      {% elif p.yellow_items %}
+        <span class="badge badge-yellow">🟡 {{ p.yellow_items|length }} {{ t("autofixed_cards") }}</span>
+      {% else %}
+        <span class="badge badge-green">🟢 {{ t("clean_cards") }}</span>
+      {% endif %}
+    </div>
+
+    <!-- 🔴 RED ISSUES REQUIRING DECISION -->
+    {% if p.red_items %}
+      <div style="margin-bottom: 20px;">
+        <h3 style="font-size: 0.95rem; color: #f87171; margin-bottom: 12px; font-weight: 700;">
+          ⚠️ Action Required for the following cards:
+        </h3>
+
+        {% for item in p.red_items %}
+        {% set item_idx = loop.index0 %}
+        <div class="issue-card">
+          <div class="issue-card-title">
+            <strong>{{ item.qty }}x {{ item.name }}</strong>
+            <span style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);">
+              {{ item.set.upper() if item.set else 'No Set' }} #{{ item.cn if item.cn else '?' }}
+            </span>
+          </div>
+          <div style="font-size: 0.84rem; color: #fca5a5; margin-bottom: 8px;">
+            {{ item.message }}
+          </div>
+
+          <div class="action-selector">
+            {% if item.suggested_set %}
+            <label class="action-radio-label">
+              <input type="radio" name="action_{{ p.deck.id }}_{{ item_idx }}" value="substitute" checked>
+              <span>{{ t("action_substitute") }} ({{ item.suggested_set.upper() }} #{{ item.suggested_cn }})</span>
+            </label>
+            {% endif %}
+
+            <label class="action-radio-label">
+              <input type="radio" name="action_{{ p.deck.id }}_{{ item_idx }}" value="drop" {% if not item.suggested_set %}checked{% endif %}>
+              <span>{{ t("action_drop") }}</span>
+            </label>
+
+            <label class="action-radio-label">
+              <input type="radio" name="action_{{ p.deck.id }}_{{ item_idx }}" value="keep">
+              <span>{{ t("action_keep") }}</span>
+            </label>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- 🟡 AUTO-FIXED CARDS -->
+    {% if p.yellow_items %}
+      <div style="margin-bottom: 16px;">
+        <details style="font-size: 0.86rem; color: var(--text-muted);">
+          <summary style="cursor: pointer; font-weight: 600; color: #fbbf24; margin-bottom: 8px;">
+            🟡 View {{ p.yellow_items|length }} Applied Auto-Fixes (Foil &amp; Promo Replacements)
+          </summary>
+          <div style="background: rgba(0, 0, 0, 0.25); border-radius: var(--radius-sm); padding: 12px; margin-top: 8px;">
+            {% for item in p.yellow_items %}
+              <div style="padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); display: flex; justify-content: space-between;">
+                <span>{{ item.qty }}x <strong>{{ item.name }}</strong> &rarr; {{ item.message }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        </details>
+      </div>
+    {% endif %}
+
+    <!-- Custom back indicator -->
+    {% if p.deck.custom_back_filename %}
+      <div style="display: flex; align-items: center; gap: 12px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-subtle);">
+        <img src="/api/deck/{{ p.deck.id }}/back" alt="Card back" style="width: 44px; height: 60px; object-fit: cover; border-radius: 4px;">
+        <span style="font-size: 0.84rem; color: var(--text-muted);">
+          Custom Back: <strong>{{ p.deck.custom_back_filename }}</strong>
+        </span>
+      </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <!-- Order Cost Quote -->
+  <div class="quote-box">
+    <div style="font-size: 0.82rem; font-weight: 700; color: #a5b4fc; text-transform: uppercase; margin-bottom: 8px;">
+      {{ t("cost_breakdown") }}
+    </div>
+    <div class="quote-row">
+      <span>{{ t("price_per_card", order.total_cards, rates.price_per_card_cents / 100.0) }}</span>
+      <span>{{ format_cents(order.total_cards * rates.price_per_card_cents) }}</span>
+    </div>
+    <div class="quote-row">
+      <span>{{ t("price_per_list", order.total_lists, rates.price_per_list_cents / 100.0) }}</span>
+      <span>{{ format_cents(order.total_lists * rates.price_per_list_cents) }}</span>
+    </div>
+    {% if rates.order_fee_cents > 0 %}
+    <div class="quote-row">
+      <span>{{ t("order_fee") }}</span>
+      <span>{{ format_cents(rates.order_fee_cents) }}</span>
+    </div>
+    {% endif %}
+    <div class="quote-row total-row">
+      <span>{{ t("total") }}</span>
+      <span>{{ format_cents(order.total_price_cents) }}</span>
+    </div>
+  </div>
+
+  <div class="action-row">
+    <button type="submit" class="btn btn-primary btn-block" style="font-size: 1.05rem; padding: 16px;">
+      ✓ {{ t("submit_order") }}
+    </button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Admin</h1>
+  <nav style="margin-bottom:1rem;">
+    <a href="/admin/settings">Einstellungen</a> ·
+    <a href="/admin/people">Personen</a> ·
+    <a href="/admin/orders">Bestellungen</a>
+  </nav>
+
+  {% if round %}
+    <h2>{{ round.name }} <span class="badge muted">{{ round.state }}</span></h2>
+    {% if round.cost_per_card_cents is not none %}
+    <p class="help">
+      {{ round.cost_per_card_cents | eur }} / Karte ·
+      {{ round.cost_per_list_cents | eur }} / Liste ·
+      {{ round.processing_charge_cents | eur }} Bearbeitungspauschale
+    </p>
+    {% else %}
+    <p class="help">Noch keine Preise festgelegt.</p>
+    {% endif %}
+    <table>
+      {% for state, count in submission_counts.items() %}
+      <tr><td>{{ state }}</td><td>{{ count }}</td></tr>
+      {% endfor %}
+    </table>
+
+    <p>Erwartet: {{ expected_cents | eur }} — Erhalten: {{ received_cents | eur }}</p>
+
+    <p><a class="button secondary" href="/admin/round/{{ round.id }}/export.zip">Runde als ZIP exportieren (ready/)</a></p>
+
+    {% if round.state == "DRAFT" %}
+      <h3>Preise dieser Runde</h3>
+      <form method="post" action="/admin/round/{{ round.id }}/update-rates">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label for="d-cpc">Preis pro Karte (Cent)</label>
+        <input type="number" min="0" id="d-cpc" name="cost_per_card_cents"
+               value="{{ round.cost_per_card_cents | input_cents }}" data-rate-per-card required>
+        <label for="d-cpl">Preis pro Liste (Cent)</label>
+        <input type="number" min="0" id="d-cpl" name="cost_per_list_cents"
+               value="{{ round.cost_per_list_cents | input_cents }}" data-rate-per-list required>
+        <label for="d-fee">Bearbeitungspauschale pro Person (Cent)</label>
+        <input type="number" min="0" id="d-fee" name="processing_charge_cents"
+               value="{{ round.processing_charge_cents | input_cents }}" data-rate-fee required>
+        <p class="help" data-rate-preview></p>
+        <p style="margin-top:1rem;"><button type="submit" class="secondary">Preise speichern</button></p>
+      </form>
+      <form method="post" action="/admin/round/{{ round.id }}/open">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit">Runde öffnen</button>
+      </form>
+    {% elif round.state == "OPEN" %}
+      <form method="post" action="/admin/round/{{ round.id }}/close">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="secondary">Runde schließen</button>
+      </form>
+    {% elif round.state == "CLOSED" or round.state == "IN_PRINT" %}
+      <form method="post" action="/admin/round/{{ round.id }}/complete">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="secondary">Runde abschließen</button>
+      </form>
+    {% endif %}
+  {% else %}
+    <p>Noch keine Runde angelegt.</p>
+  {% endif %}
+</div>
+
+{% if not round or round.state in ("COMPLETED", "ARCHIVED", "CANCELLED") %}
+<div class="card">
+  <h2>Neue Runde anlegen</h2>
+  <form method="post" action="/admin/round/new">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="code">Kurzcode (z. B. 2611)</label>
+    <input type="text" id="code" name="code" required>
+    <label for="name">Name</label>
+    <input type="text" id="name" name="name" required>
+
+    <label for="n-cpc">Preis pro Karte (Cent)</label>
+    <input type="number" min="0" id="n-cpc" name="cost_per_card_cents"
+           value="{{ default_rates.cost_per_card_cents }}" data-rate-per-card required>
+    <label for="n-cpl">Preis pro Liste (Cent)</label>
+    <input type="number" min="0" id="n-cpl" name="cost_per_list_cents"
+           value="{{ default_rates.cost_per_list_cents }}" data-rate-per-list required>
+    <label for="n-fee">Bearbeitungspauschale pro Person (Cent)</label>
+    <input type="number" min="0" id="n-fee" name="processing_charge_cents"
+           value="{{ default_rates.processing_charge_cents }}" data-rate-fee required>
+    <p class="help" data-rate-preview></p>
+    <p class="help">Vorausgefüllt aus den <a href="/admin/settings">Einstellungen</a> — hier für
+       diese eine Runde anpassbar, solange sie noch nicht geöffnet ist.</p>
+
+    <p style="margin-top:1rem;"><button type="submit" class="secondary">Anlegen</button></p>
+  </form>
+</div>
+{% endif %}
+<script src="/static/rate-preview.js" defer></script>
+{% endblock %}

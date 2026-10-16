@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Datenschutz{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Datenschutzerklärung</h1>
+
+  <h2>Verantwortlicher</h2>
+  <p>Diese Seite wird von {{ controller_name }} als private, nicht-kommerzielle
+     Kostenbeteiligungs-Plattform für eine Gruppe von Bekannten betrieben.
+     Kontakt: {{ controller_contact }}</p>
+
+  <h2>Welche Daten werden gespeichert und warum</h2>
+  <table>
+    <tr><th>Daten</th><th>Zweck</th><th>Rechtsgrundlage</th><th>Speicherdauer</th></tr>
+    <tr><td>Anzeigename, Konto-Kennung</td><td>Zuordnung der Kartenlisten, Trennkarten im Druck</td><td>Art. 6 (1) b DSGVO</td><td>Bis Löschung / 12 Monate Inaktivität</td></tr>
+    <tr><td>E-Mail (optional)</td><td>Benachrichtigung über den Bestellstatus</td><td>Art. 6 (1) a DSGVO (Einwilligung)</td><td>Bis Löschung / Widerruf</td></tr>
+    <tr><td>Kartenlisten</td><td>Der eigentliche Dienst (Druckvorbereitung)</td><td>Art. 6 (1) b DSGVO</td><td>90 Tage nach Rundenabschluss</td></tr>
+    <tr><td>Zahlungsreferenz &amp; Betrag</td><td>Kostenabrechnung</td><td>Art. 6 (1) b DSGVO</td><td>90 Tage nach Rundenabschluss</td></tr>
+    <tr><td>Sitzungsdaten (gehasht)</td><td>Sicherheit / Anmeldung</td><td>Art. 6 (1) f DSGVO</td><td>Ablauf + 7 Tage</td></tr>
+  </table>
+
+  <p><strong>Nicht erhoben:</strong> Postanschrift, echter Name (sofern abweichend), Telefonnummer,
+     Zahlungsdaten, Ausweisdaten.</p>
+
+  <h2>PayPal</h2>
+  <p>Die Zahlung selbst erfolgt außerhalb dieser Plattform über PayPal.me. Es werden keine
+     Zahlungsdaten an diese Plattform übermittelt — die Organisation bestätigt den Zahlungseingang
+     manuell. PayPal ist für die Verarbeitung der dort eingegebenen Daten eigenständig
+     verantwortlich; es gilt die Datenschutzerklärung von PayPal.</p>
+
+  <h2>Scryfall</h2>
+  <p>Zur Überprüfung der Kartenlisten werden Kartennamen (keine personenbezogenen Daten) an die
+     Scryfall-API (USA) übermittelt. Es werden keine Nutzerkennungen an Scryfall übertragen.</p>
+
+  <h2>Cookies</h2>
+  <p>Es werden ausschließlich technisch notwendige Cookies verwendet (Sitzung, Zugangs-Cookie,
+     CSRF-Schutz). Es findet keine Analyse- oder Marketing-Cookie-Nutzung statt, daher ist kein
+     Cookie-Banner erforderlich (§ 25 TTDSG).</p>
+
+  <h2>Deine Rechte</h2>
+  <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung,
+     Datenübertragbarkeit und Widerspruch. Nutze dazu die Funktionen unter
+     <a href="/account">„Konto“</a> oder wende dich direkt an {{ controller_contact }}.
+     Du hast außerdem das Recht auf Beschwerde bei einer Datenschutzaufsichtsbehörde
+     (z. B. LDI NRW).</p>
+
+  <p class="help">Version {{ privacy_version }}</p>
+</div>
+{% endblock %}

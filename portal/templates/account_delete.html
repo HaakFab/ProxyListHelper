@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Konto löschen{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Konto &amp; Daten löschen</h1>
+  <p>Das löscht dauerhaft: deinen Anzeigenamen, deine E-Mail, alle Kartenlisten und deren
+     Prüfergebnisse sowie deine Sitzungen.</p>
+  <p><strong>Ausnahme:</strong> Falls eine deiner Bestellungen bereits bezahlt und in den Druck
+     gegangen ist, bleiben Betrag und Referenz für die Abrechnung der Runde erhalten — dein Name
+     wird dabei aber durch eine anonyme Kennung ersetzt.</p>
+  <form method="post" action="/account/delete">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="confirm">Zur Bestätigung "löschen" eingeben</label>
+    <input type="text" id="confirm" name="confirm" required>
+    <p style="margin-top:1rem;"><button type="submit" class="danger">Endgültig löschen</button></p>
+  </form>
+</div>
+{% endblock %}

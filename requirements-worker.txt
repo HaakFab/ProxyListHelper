@@ -1,0 +1,18 @@
+# Print-pipeline dependencies (Fabian's Mac only).
+#
+# These back moxfield_mpc_to_pdf.py: Scryfall image download, intelligent bleed,
+# Real-ESRGAN upscaling and PDF assembly. Never installed on the portal VPS.
+#
+# Versions reflect the interpreter the pipeline currently runs on
+# (~/miniconda3/bin/python, Python 3.11).
+
+torch==2.5.0
+numpy>=2.0
+scipy>=1.14
+Pillow>=11.0
+reportlab>=4.0
+requests>=2.32
+rich>=13.0
+pypdf>=5.1
+
+# The worker that polls the portal for print jobs.

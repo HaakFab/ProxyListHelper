@@ -1,0 +1,120 @@
+"""Scryfall API client with caching, foil fallback & promo stamp replacement."""
+import json
+import os
+import re
+import time
+import urllib.request
+import urllib.error
+from typing import Dict, Optional, Tuple
+
+SCRYFALL_HEADERS = {
+    "User-Agent": "ProxyListHelper/1.0 (https://github.com/HaakFab/ProxyListHelper)",
+    "Accept": "application/json",
+}
+
+# In-memory session cache to avoid redundant hits
+_CACHE: Dict[str, dict] = {}
+
+def _scryfall_get(url: str) -> Optional[dict]:
+    if url in _CACHE:
+        return _CACHE[url]
+    
+    time.sleep(0.08)  # Respect Scryfall 50-100ms rate limit
+    req = urllib.request.Request(url, headers=SCRYFALL_HEADERS)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            _CACHE[url] = data
+            return data
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            _CACHE[url] = None
+            return None
+        return None
+    except Exception:
+        return None
+
+def get_card_by_set_cn(set_code: str, collector_number: str) -> Optional[dict]:
+    """Look up a card by set code and collector number."""
+    if not set_code or not collector_number:
+        return None
+    url = f"https://api.scryfall.com/cards/{set_code.lower()}/{collector_number.lower()}"
+    return _scryfall_get(url)
+
+def get_card_by_name(card_name: str) -> Optional[dict]:
+    """Look up a card by exact name."""
+    clean_name = card_name.split(" // ")[0].strip()
+    encoded = urllib.parse.quote(clean_name)
+    url = f"https://api.scryfall.com/cards/named?exact={encoded}"
+    return _scryfall_get(url)
+
+def is_foil_only(card_data: dict) -> bool:
+    """Checks if a card is only available in foil or etched."""
+    finishes = card_data.get("finishes", [])
+    return bool(finishes and "nonfoil" not in finishes)
+
+def has_planeswalker_stamp(card_data: dict) -> bool:
+    """Checks if a card has a promo planeswalker stamp."""
+    promo_types = card_data.get("promo_types", []) or []
+    if "planeswalkerstamped" in promo_types or "stamped" in promo_types or "promopack" in promo_types:
+        return True
+    return False
+
+def find_clean_paper_fallback(
+    card_name: str,
+    prefer_nonfoil: bool = True,
+    avoid_stamped: bool = True
+) -> Optional[dict]:
+    """
+    Finds a standard paper printing for a card name.
+    Prioritizes non-foil, non-stamped releases.
+    """
+    clean_name = card_name.split(" // ")[0].strip()
+    encoded = urllib.parse.quote(clean_name)
+    
+    query_parts = [f'!\"{encoded}\"', "game:paper"]
+    if prefer_nonfoil:
+        query_parts.append("is:nonfoil")
+    if avoid_stamped:
+        query_parts.append("-is:stamped")
+        
+    query_str = "+".join(query_parts)
+    url = f"https://api.scryfall.com/cards/search?q={query_str}&order=released&dir=desc"
+    data = _scryfall_get(url)
+    
+    if data and "data" in data and len(data["data"]) > 0:
+        return data["data"][0]
+        
+    # Fallback to any paper printing if strict query had no hits
+    url_fallback = f"https://api.scryfall.com/cards/search?q=!\"{encoded}\"+game:paper&order=released&dir=desc"
+    data_fallback = _scryfall_get(url_fallback)
+    if data_fallback and "data" in data_fallback and len(data_fallback["data"]) > 0:
+        return data_fallback["data"][0]
+        
+    return None
+
+def check_localized_scan(set_code: str, collector_number: str, lang: str) -> Tuple[bool, Optional[str]]:
+    """
+    Checks if Scryfall has a localized high-res scan for set/cn in lang.
+    Returns: (has_scan, localized_printed_name)
+    """
+    if not lang or lang.lower() == "en":
+        return True, None
+        
+    if not set_code or not collector_number:
+        return False, None
+        
+    url = f"https://api.scryfall.com/cards/{set_code.lower()}/{collector_number.lower()}/{lang.lower()}"
+    data = _scryfall_get(url)
+    if not data:
+        return False, None
+        
+    has_image = False
+    if "image_uris" in data:
+        has_image = bool(data["image_uris"].get("png") or data["image_uris"].get("large"))
+    elif "card_faces" in data and len(data["card_faces"]) > 0:
+        f0 = data["card_faces"][0]
+        has_image = bool(f0.get("image_uris", {}).get("png") or f0.get("image_uris", {}).get("large"))
+        
+    printed_name = data.get("printed_name") or data.get("name")
+    return has_image, printed_name

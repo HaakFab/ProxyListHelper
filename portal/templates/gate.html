@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Zugang{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Zugang</h1>
+  <p>Diese Seite ist eine private, nicht-kommerzielle Sammelbestellung. Bitte gib den Zugangscode ein,
+     den du von der Organisation erhalten hast.</p>
+  <form method="post" action="/gate">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="code">Zugangscode</label>
+    <input type="text" id="code" name="code" autofocus required>
+    <p style="margin-top:1rem;"><button type="submit">Weiter</button></p>
+  </form>
+</div>
+{% endblock %}

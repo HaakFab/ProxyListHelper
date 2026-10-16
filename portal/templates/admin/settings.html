@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Einstellungen{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Einstellungen</h1>
+  <form method="post" action="/admin/settings">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="cost_per_card_cents">Preis pro Karte (Cent)</label>
+    <input type="number" min="0" id="cost_per_card_cents" name="cost_per_card_cents"
+           value="{{ values.cost_per_card_cents }}" data-rate-per-card required>
+    <label for="cost_per_list_cents">Preis pro Liste (Cent)</label>
+    <input type="number" min="0" id="cost_per_list_cents" name="cost_per_list_cents"
+           value="{{ values.cost_per_list_cents }}" data-rate-per-list required>
+    <label for="processing_charge_cents">Bearbeitungspauschale pro Person (Cent)</label>
+    <input type="number" min="0" id="processing_charge_cents" name="processing_charge_cents"
+           value="{{ values.processing_charge_cents }}" data-rate-fee required>
+    <p class="help" data-rate-preview></p>
+    <label for="paypal_me_handle">PayPal.me-Name</label>
+    <input type="text" id="paypal_me_handle" name="paypal_me_handle" value="{{ values.paypal_me_handle }}" required>
+    <label for="retention_days">Aufbewahrungsdauer nach Rundenabschluss (Tage)</label>
+    <input type="text" id="retention_days" name="retention_days" value="{{ values.retention_days }}" required>
+    <p style="margin-top:1rem;"><button type="submit">Speichern</button></p>
+  </form>
+  <p class="help">Diese Werte sind nur der <strong>Vorschlag</strong>, mit dem das Formular für
+     eine neue Runde vorausgefüllt wird — jede Runde hat ihre eigenen, bei ihrer Erstellung
+     festgelegten Preise (unter „Runde anlegen“ auf der Startseite). Eine Änderung hier wirkt sich
+     nie auf eine bereits angelegte Runde aus, egal ob sie schon geöffnet wurde oder nicht.</p>
+</div>
+
+<div class="card">
+  <h2>Zugangscode ändern</h2>
+  <form method="post" action="/admin/settings/rotate-invite-code">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="new_code">Neuer Zugangscode</label>
+    <input type="text" id="new_code" name="new_code" required>
+    <p style="margin-top:1rem;"><button type="submit" class="secondary">Ändern</button></p>
+  </form>
+</div>
+<script src="/static/rate-preview.js" defer></script>
+{% endblock %}

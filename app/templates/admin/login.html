@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+  <h1>{{ t("admin_login") }}</h1>
+  <p>Enter the administrator password to access live pricing and orders.</p>
+</div>
+
+<div class="glass-card" style="max-width: 440px; margin: 0 auto;">
+  {% if error %}
+  <div style="background: var(--red-bg); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 0.88rem;">
+    Invalid password. Please try again.
+  </div>
+  {% endif %}
+
+  <form action="/admin/login" method="POST">
+    <input type="hidden" name="lang" value="{{ lang }}">
+
+    <div class="form-group">
+      <label class="form-label" for="password">{{ t("password") }}</label>
+      <input type="password" class="form-input" id="password" name="password" required autofocus>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block">
+      {{ t("login") }}
+    </button>
+  </form>
+</div>
+{% endblock %}

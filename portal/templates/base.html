@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Proxy-Sammelbestellung{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="site">
+    <a class="brand" href="/">Proxy-Sammelbestellung</a>
+    <nav class="site">
+      {% if current_user %}
+        <span>{{ current_user.display_name }}</span>
+        {% if current_user.is_admin %}<a href="/admin">Admin</a>{% endif %}
+        <a href="/account">Konto</a>
+        <form method="post" action="/logout" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="secondary" style="padding:0.2rem 0.6rem;font-size:0.85rem;">Abmelden</button>
+        </form>
+      {% endif %}
+    </nav>
+  </header>
+
+  <div class="wrap">
+    {% for message in flashes %}
+      <div class="flash {{ message.kind }}">{{ message.text }}</div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </div>
+
+  <footer class="site">
+    <p>
+      Private, nicht-kommerzielle Sammelbestellung unter Bekannten. Keine Gewinnerzielungsabsicht —
+      es werden ausschließlich die tatsächlichen Druckkosten umgelegt.
+    </p>
+    <p><a href="/datenschutz">Datenschutz</a></p>
+  </footer>
+</body>
+</html>

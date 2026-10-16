@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Kostenübersicht{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Kostenübersicht</h1>
+  <p><span class="badge {{ order.state | order_badge }}">{{ order.state | order_label }}</span></p>
+
+  {% if snapshot %}
+    <div class="price-line"><span>{{ snapshot.n_cards }} Karten × {{ snapshot.cost_per_card_cents | eur }}</span>
+      <span>{{ (snapshot.n_cards * snapshot.cost_per_card_cents) | eur }}</span></div>
+    <div class="price-line"><span>{{ snapshot.n_lists }} Listen × {{ snapshot.cost_per_list_cents | eur }}</span>
+      <span>{{ (snapshot.n_lists * snapshot.cost_per_list_cents) | eur }}</span></div>
+    <div class="price-line"><span>Bearbeitungspauschale</span><span>{{ snapshot.processing_charge_cents | eur }}</span></div>
+    <div class="price-line price-total"><span>Gesamt</span><span>{{ snapshot.total_cents | eur }}</span></div>
+  {% endif %}
+
+  <p style="margin-top:1rem;">Verwendungszweck: <code>{{ order.reference_code }}</code></p>
+
+  {% if order.state == "LOCKED" %}
+    {% if paypal_handle %}
+    <p>
+      <a class="button" target="_blank" rel="noopener"
+         href="https://paypal.me/{{ paypal_handle }}/{{ '%.2f' | format(snapshot.total_cents / 100) }}EUR">
+        Mit PayPal bezahlen
+      </a>
+    </p>
+    {% endif %}
+    <p class="help">Bitte gib <strong>{{ order.reference_code }}</strong> als Verwendungszweck/Notiz bei
+       PayPal an. PayPal.me kann diesen Code leider nicht automatisch übertragen — falls du ihn
+       vergisst, sag der Organisation einfach kurz Bescheid.</p>
+
+    <form method="post" action="/order/mark-sent">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit">Ich habe überwiesen</button>
+    </form>
+  {% elif order.state == "PARTIALLY_PAID" %}
+    <p>Es ist bereits ein Teilbetrag eingegangen. Falls du den Rest schon überwiesen hast,
+       gib der Organisation kurz Bescheid.</p>
+  {% elif order.state in ("PAID", "FROZEN", "IN_PRINT_RUN", "COMPLETED") %}
+    <p>Zahlung bestätigt — vielen Dank!</p>
+  {% endif %}
+</div>
+{% endblock %}

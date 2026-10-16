@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+  <h1>{{ t("title") }}</h1>
+  <p>{{ t("subtitle") }}</p>
+</div>
+
+<form action="/submit" method="POST" enctype="multipart/form-data" id="submit-form">
+  <input type="hidden" name="ui_lang" value="{{ lang }}">
+  <input type="hidden" name="deck_count" id="deck_count" value="1">
+
+  <!-- Submitter Information -->
+  <div class="glass-card">
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label" for="submitter_name">{{ t("your_name") }} *</label>
+      <input type="text" class="form-input" id="submitter_name" name="submitter_name" 
+             placeholder="{{ t("name_placeholder") }}" required autofocus>
+    </div>
+  </div>
+
+  <!-- Decks Container -->
+  <div id="decks-container">
+    <!-- Deck #1 -->
+    <div class="glass-card" id="deck-card-0">
+      <div class="card-header-bar">
+        <span class="deck-tag">{{ t("deck_number", 1) }}</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="deck_name_0">{{ t("deck_name") }}</label>
+        <input type="text" class="form-input" id="deck_name_0" name="deck_name_0" 
+               placeholder="{{ t("deck_name_placeholder") }}" value="Deck 1">
+      </div>
+
+      <input type="hidden" name="source_type_0" value="url">
+
+      <div class="tabs-nav">
+        <button type="button" class="tab-btn active" data-tab="url" onclick="switchTab(0, 'url')">{{ t("moxfield_url_tab") }}</button>
+        <button type="button" class="tab-btn" data-tab="text" onclick="switchTab(0, 'text')">{{ t("paste_text_tab") }}</button>
+      </div>
+
+      <!-- URL Tab -->
+      <div class="tab-content active" data-tab-content="url">
+        <div class="form-group">
+          <label class="form-label" for="moxfield_url_0">{{ t("moxfield_url_tab") }}</label>
+          <input type="url" class="form-input" id="moxfield_url_0" name="moxfield_url_0" 
+                 placeholder="{{ t("moxfield_url_placeholder") }}" onchange="handleMoxfieldInput(0)">
+          <div style="margin-top: 8px;">
+            <span id="preview_status_0" class="badge" style="display: none;"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paste Text Tab -->
+      <div class="tab-content" data-tab-content="text">
+        <div class="form-group">
+          <label class="form-label" for="raw_text_0">{{ t("paste_text_tab") }}</label>
+          <textarea class="form-textarea" id="raw_text_0" name="raw_text_0" 
+                    placeholder="{{ t("paste_text_placeholder") }}"></textarea>
+        </div>
+      </div>
+
+      <!-- Preferred Language Selector -->
+      <div class="form-group">
+        <label class="form-label" for="preferred_language_0">{{ t("preferred_language") }}</label>
+        <select class="form-select" id="preferred_language_0" name="preferred_language_0">
+          {% for code, name in language_names %}
+            <option value="{{ code }}" {% if code == "en" %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-hint">Scryfall will download scans in this language when available, falling back to English.</div>
+      </div>
+
+      <!-- Pre-run Options -->
+      <div class="options-grid">
+        <label class="checkbox-label">
+          <input type="checkbox" id="include_sideboard_0" name="include_sideboard_0">
+          {{ t("include_sideboard") }}
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="include_considering_0" name="include_considering_0">
+          {{ t("include_considering") }}
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="convert_foils_0" name="convert_foils_0" checked>
+          {{ t("convert_foils") }}
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="replace_stamps_0" name="replace_stamps_0" checked>
+          {{ t("replace_stamps") }}
+        </label>
+      </div>
+
+      <!-- Optional Custom Card Back Upload -->
+      <div class="form-group">
+        <label class="form-label">{{ t("custom_back") }}</label>
+        <label class="upload-dropzone" for="custom_back_0">
+          <img id="preview_img_0" class="upload-preview" alt="Card back preview">
+          <div id="upload_prompt_0" style="font-size: 0.84rem; color: var(--text-muted);">
+            📷 {{ t("custom_back_hint") }}
+          </div>
+          <input type="file" id="custom_back_0" name="custom_back_0" accept="image/png, image/jpeg, image/webp" 
+                 style="display: none;" onchange="handleImageUpload(this, 0)">
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dynamic Actions -->
+  <div style="margin-bottom: 24px;">
+    <button type="button" class="btn btn-secondary btn-block" onclick="addDeckForm()">
+      {{ t("add_another_deck") }}
+    </button>
+  </div>
+
+  <!-- Pricing Info Notice -->
+  <div class="quote-box">
+    <div style="font-size: 0.82rem; font-weight: 700; color: #a5b4fc; text-transform: uppercase; margin-bottom: 8px;">
+      Printing Rates
+    </div>
+    <div class="quote-row">
+      <span>Price per card:</span>
+      <span style="font-weight: 600;">{{ format_cents(rates.price_per_card_cents) }}</span>
+    </div>
+    <div class="quote-row">
+      <span>Price per list (divider card):</span>
+      <span style="font-weight: 600;">{{ format_cents(rates.price_per_list_cents) }}</span>
+    </div>
+    {% if rates.order_fee_cents > 0 %}
+    <div class="quote-row">
+      <span>Order fee:</span>
+      <span style="font-weight: 600;">{{ format_cents(rates.order_fee_cents) }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="action-row">
+    <button type="submit" class="btn btn-primary btn-block" style="font-size: 1.05rem; padding: 16px;">
+      ⚡ {{ t("analyze_and_convert") }}
+    </button>
+  </div>
+</form>
+{% endblock %}

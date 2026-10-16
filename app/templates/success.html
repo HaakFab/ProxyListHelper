@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+  <div style="font-size: 3rem; margin-bottom: 12px;">🎉</div>
+  <h1>{{ t("confirmation_title") }}</h1>
+  <p>{{ t("confirmation_subtitle") }}</p>
+</div>
+
+<div class="glass-card" style="text-align: center; border-color: rgba(99, 102, 241, 0.4);">
+  <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+    {{ t("reference_code") }}
+  </div>
+  <div style="font-family: var(--font-mono); font-size: 1.8rem; font-weight: 800; color: #a5b4fc; letter-spacing: 0.08em; background: rgba(0, 0, 0, 0.4); padding: 12px 20px; border-radius: var(--radius-md); display: inline-block; margin-bottom: 12px; border: 1px dashed rgba(99, 102, 241, 0.5);">
+    {{ order.reference_code }}
+  </div>
+  <div style="font-size: 0.82rem; color: var(--text-dim);">
+    {{ t("reference_hint") }}
+  </div>
+</div>
+
+<div class="glass-card">
+  <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 16px;">{{ t("order_summary") }}</h2>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
+    <div style="background: rgba(0, 0, 0, 0.3); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+      <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Submitter</div>
+      <div style="font-size: 1.1rem; font-weight: 700; color: #fff;">{{ order.submitter_name }}</div>
+    </div>
+    <div style="background: rgba(0, 0, 0, 0.3); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+      <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">{{ t("total_decks") }}</div>
+      <div style="font-size: 1.1rem; font-weight: 700; color: #fff;">{{ order.total_lists }}</div>
+    </div>
+    <div style="background: rgba(0, 0, 0, 0.3); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+      <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">{{ t("total_cards") }}</div>
+      <div style="font-size: 1.1rem; font-weight: 700; color: #34d399;">{{ order.total_cards }}</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 20px;">
+    <h3 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; color: var(--text-muted);">Submitted Decks</h3>
+    {% for deck in order.decks %}
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-sm); margin-bottom: 8px; border: 1px solid var(--border-subtle);">
+      <div>
+        <strong>{{ deck.name }}</strong>
+        <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 8px;">
+          Lang: {{ deck.preferred_language.upper() }} &bull; {{ deck.card_count }} cards
+        </span>
+      </div>
+      <div>
+        {% if deck.custom_back_filename %}
+          <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc;">Custom Back</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="quote-box" style="margin-bottom: 0;">
+    <div style="font-size: 0.82rem; font-weight: 700; color: #a5b4fc; text-transform: uppercase; margin-bottom: 8px;">
+      {{ t("cost_breakdown") }}
+    </div>
+    <div class="quote-row">
+      <span>{{ t("price_per_card", order.total_cards, rates.price_per_card_cents / 100.0) }}</span>
+      <span>{{ format_cents(order.total_cards * rates.price_per_card_cents) }}</span>
+    </div>
+    <div class="quote-row">
+      <span>{{ t("price_per_list", order.total_lists, rates.price_per_list_cents / 100.0) }}</span>
+      <span>{{ format_cents(order.total_lists * rates.price_per_list_cents) }}</span>
+    </div>
+    {% if rates.order_fee_cents > 0 %}
+    <div class="quote-row">
+      <span>{{ t("order_fee") }}</span>
+      <span>{{ format_cents(rates.order_fee_cents) }}</span>
+    </div>
+    {% endif %}
+    <div class="quote-row total-row">
+      <span>{{ t("total") }}</span>
+      <span>{{ format_cents(order.total_price_cents) }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="action-row">
+  <a href="/?lang={{ lang }}" class="btn btn-secondary btn-block">
+    &larr; Submit Another Order
+  </a>
+</div>
+{% endblock %}
