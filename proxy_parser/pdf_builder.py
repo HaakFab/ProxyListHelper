@@ -75,8 +75,15 @@ class PDFBatchBuilder:
         mode = self.config.break_by
         generated_summaries = []
 
+        def get_item_dividers(item: Dict[str, Any]) -> List[Tuple[str, str]]:
+            if "dividers" in item and item["dividers"]:
+                return item["dividers"]
+            if item.get("divider"):
+                return [item["divider"]]
+            return []
+
         def sequence_len(item: Dict[str, Any]) -> int:
-            return len(item["card_pairs"]) + (1 if item.get("divider") else 0)
+            return len(item["card_pairs"]) + len(get_item_dividers(item))
 
         # Total pairs across every output file this call will produce, used
         # as the denominator for one continuous progress bar regardless of
@@ -95,12 +102,40 @@ class PDFBatchBuilder:
             nonlocal rendered_so_far
             rendered_so_far += file_sequence_len
 
-        if mode == "none":
+        # Check for smart suborders mode
+        if self.config.enable_suborders:
+            from .grouping import optimize_suborders
+            batches = optimize_suborders(
+                deck_items=deck_items,
+                cards_per_sheet=self.config.cards_per_sheet,
+                target_suborder_cards=self.config.target_suborder_cards
+            )
+
+            for b in batches:
+                sub_sequence = []
+                card_count = 0
+                for item in b.deck_items:
+                    for div in get_item_dividers(item):
+                        sub_sequence.append(div)
+                    sub_sequence.extend(item["card_pairs"])
+                    card_count += len(item["card_pairs"])
+
+                out_path = os.path.join(output_dir, f"suborder_{b.batch_index:02d}_{b.total_cards}cards.pdf")
+                render_pages_to_pdf(sub_sequence, out_path, self.page_width_pt, self.page_height_pt, progress_callback=track)
+                finish_file(len(sub_sequence))
+                generated_summaries.append({
+                    "file": out_path,
+                    "cards": card_count,
+                    "pages": len(sub_sequence) * 2,
+                    "label": f"Suborder {b.batch_index} ({b.total_cards} cards • {b.sheets_required} sheets • {b.waste_slots} waste slots)"
+                })
+
+        elif mode == "none":
             full_sequence = []
             total_card_count = 0
             for item in deck_items:
-                if item.get("divider"):
-                    full_sequence.append(item["divider"])
+                for div in get_item_dividers(item):
+                    full_sequence.append(div)
                 full_sequence.extend(item["card_pairs"])
                 total_card_count += len(item["card_pairs"])
 
@@ -125,8 +160,8 @@ class PDFBatchBuilder:
                 person_sequence = []
                 cards_count = 0
                 for item in items:
-                    if item.get("divider"):
-                        person_sequence.append(item["divider"])
+                    for div in get_item_dividers(item):
+                        person_sequence.append(div)
                     person_sequence.extend(item["card_pairs"])
                     cards_count += len(item["card_pairs"])
 
@@ -143,8 +178,8 @@ class PDFBatchBuilder:
         elif mode == "document":
             for item in deck_items:
                 doc_sequence = []
-                if item.get("divider"):
-                    doc_sequence.append(item["divider"])
+                for div in get_item_dividers(item):
+                    doc_sequence.append(div)
                 doc_sequence.extend(item["card_pairs"])
 
                 doc_id = item["deck"].doc_id

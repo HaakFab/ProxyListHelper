@@ -5,7 +5,7 @@ import glob
 import time
 import hashlib
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from PIL import Image
 import numpy as np
 
@@ -21,6 +21,7 @@ from proxy_parser import (
     redact_copyright,
     add_intelligent_bleed,
     generate_divider_card,
+    generate_divider_cards,
     GDriveManager,
     PDFBatchBuilder,
     write_summary_csv,
@@ -261,24 +262,37 @@ def report_superseded_png_bleed_cache(config: AppConfig):
         "-exec sh -c 'test -f \"${1%.png}.jpg\" && rm \"$1\"' _ {} \\;[/dim]"
     )
 
-def main():
-    config = parse_arguments()
+def run_pipeline(
+    config: AppConfig,
+    specific_entries: Optional[List[Tuple[str, Optional[str]]]] = None,
+    progress_callback=None,
+    log_callback=None,
+    is_cancelled=None
+) -> Dict[str, Any]:
+    """Executes the complete proxy generation and PDF compilation pipeline."""
+    def log(msg: str):
+        console.print(msg)
+        if log_callback:
+            import re
+            plain = re.sub(r"\[.*?\]", "", str(msg))
+            log_callback(plain)
 
-    console.print("\n[bold magenta]=====================================================[/bold magenta]")
-    console.print(f"[bold cyan] MTG Moxfield Proxy to PDF Generator[/bold cyan] [green]v2.1[/green]")
-    console.print(f" Mode: [yellow]{config.mode}[/yellow] | Upscale: [yellow]x{config.upscale_factor}[/yellow] | Remove Copyright: [yellow]{config.remove_copyright}[/yellow]")
-    console.print(f" Card Dimensions: [bold green]{config.cut_width_mm:.0f}x{config.cut_height_mm:.0f}mm[/bold green] (+{config.bleed_margin_mm:.0f}mm bleed -> [bold green]{config.target_card_width_mm:.0f}x{config.target_card_height_mm:.0f}mm[/bold green])")
-    console.print(f" Bleed: [yellow]{config.bleed_mode}[/yellow] | Break PDF: [yellow]{config.break_by}[/yellow]")
-    console.print("[bold magenta]=====================================================[/bold magenta]\n")
+    log("\n[bold magenta]=====================================================[/bold magenta]")
+    log(f"[bold cyan] MTG Moxfield Proxy to PDF Generator[/bold cyan] [green]v2.1[/green]")
+    log(f" Mode: [yellow]{config.mode}[/yellow] | Upscale: [yellow]x{config.upscale_factor}[/yellow] | Remove Copyright: [yellow]{config.remove_copyright}[/yellow]")
+    log(f" Card Dimensions: [bold green]{config.cut_width_mm:.0f}x{config.cut_height_mm:.0f}mm[/bold green] (+{config.bleed_margin_mm:.0f}mm bleed -> [bold green]{config.target_card_width_mm:.0f}x{config.target_card_height_mm:.0f}mm[/bold green])")
+    log(f" Bleed: [yellow]{config.bleed_mode}[/yellow] | Break PDF: [yellow]{config.break_by}[/yellow]")
+    log(f" Dividers: [yellow]{'Two cards (Striped)' if getattr(config, 'two_divider_cards', True) else 'Single card'}[/yellow] | Suborders: [yellow]{getattr(config, 'enable_suborders', False)}[/yellow]")
+    log("[bold magenta]=====================================================[/bold magenta]\n")
 
     if config.reset_bleed_cache:
         reset_local_bleed_cache(config)
 
     # 1. Check default cardback
     if not os.path.exists(config.default_cardback):
-        console.print(f"[bold red]Error:[/bold red] Cardback '{config.default_cardback}' not found.")
-        console.print(f"Please place your default card back inside the '{config.backs_dir}/' folder.")
-        return
+        log(f"[bold red]Error:[/bold red] Cardback '{config.default_cardback}' not found.")
+        log(f"Please place your default card back inside the '{config.backs_dir}/' folder.")
+        return {"success": False, "error": f"Cardback '{config.default_cardback}' not found."}
 
     # 2. Setup Google Drive integration
     gdrive = GDriveManager(config.gdrive_dir, config.offload_cache)
@@ -287,37 +301,38 @@ def main():
     local_output_dir = "output"
     os.makedirs(local_output_dir, exist_ok=True)
 
-    # 3. Discover decklist files (supports both flat .txt files and subdirectories with custom backs)
-    discovered_entries: List[Tuple[str, Optional[str]]] = []  # (decklist_path, optional_custom_back)
-
-    if os.path.exists(config.input_dir):
-        for item in sorted(os.listdir(config.input_dir)):
-            item_path = os.path.join(config.input_dir, item)
-            if os.path.isfile(item_path) and item.endswith(".txt"):
-                discovered_entries.append((item_path, None))
-            elif os.path.isdir(item_path):
-                # Search inside deck directory
-                sub_txts = sorted(glob.glob(os.path.join(item_path, "*.txt")))
-                if sub_txts:
-                    decklist_file = os.path.join(item_path, "decklist.txt")
-                    chosen_txt = decklist_file if os.path.exists(decklist_file) else sub_txts[0]
-                    # Look for companion card back image
-                    custom_back = None
-                    for ext in [".jpg", ".jpeg", ".png", ".webp"]:
-                        for b_name in ["back", "cardback", "custom_back"]:
-                            cand = os.path.join(item_path, f"{b_name}{ext}")
-                            if os.path.exists(cand):
-                                custom_back = cand
+    # 3. Discover decklist files
+    if specific_entries is not None:
+        discovered_entries = specific_entries
+    else:
+        discovered_entries = []
+        if os.path.exists(config.input_dir):
+            for item in sorted(os.listdir(config.input_dir)):
+                item_path = os.path.join(config.input_dir, item)
+                if os.path.isfile(item_path) and item.endswith(".txt"):
+                    discovered_entries.append((item_path, None))
+                elif os.path.isdir(item_path):
+                    sub_txts = sorted(glob.glob(os.path.join(item_path, "*.txt")))
+                    if sub_txts:
+                        decklist_file = os.path.join(item_path, "decklist.txt")
+                        chosen_txt = decklist_file if os.path.exists(decklist_file) else sub_txts[0]
+                        custom_back = None
+                        for ext in [".jpg", ".jpeg", ".png", ".webp"]:
+                            for b_name in ["back", "cardback", "custom_back"]:
+                                cand = os.path.join(item_path, f"{b_name}{ext}")
+                                if os.path.exists(cand):
+                                    custom_back = cand
+                                    break
+                            if custom_back:
                                 break
-                        if custom_back:
-                            break
-                    discovered_entries.append((chosen_txt, custom_back))
+                        discovered_entries.append((chosen_txt, custom_back))
 
     if not discovered_entries:
-        console.print(f"[bold yellow]No deck files found in '{config.input_dir}/'. Place your Moxfield .txt files or deck folders there.[/bold yellow]")
-        return
+        log(f"[bold yellow]No deck files found in '{config.input_dir}/'. Place your Moxfield .txt files or deck folders there.[/bold yellow]")
+        return {"success": False, "error": f"No deck files found in '{config.input_dir}/'"}
 
-    console.print(f"Found [bold green]{len(discovered_entries)}[/bold green] decklist(s) in '{config.input_dir}/'.")
+    log(f"Found [bold green]{len(discovered_entries)}[/bold green] decklist(s) for print run.")
+
 
     # 4. Parse all deck files
     decks: List[Deck] = []
@@ -362,6 +377,9 @@ def main():
         
         def on_fetch_progress(current, total):
             progress.update(fetch_task, completed=current, total=total)
+            if progress_callback:
+                pct = (current / max(total, 1)) * 100.0
+                progress_callback("scryfall", current, total, pct, f"Fetching Scryfall card data ({current}/{total})...")
 
         metadata_map = scryfall_client.fetch_cards_batch(list(unique_cards.values()), on_fetch_progress)
         progress.update(fetch_task, completed=len(unique_cards), description="[green]Scryfall data verified.")
@@ -374,6 +392,10 @@ def main():
 
         card_assets: Dict[str, Tuple[str, str]] = {}
         for idx, (key, card) in enumerate(unique_cards.items(), start=1):
+            if is_cancelled and is_cancelled():
+                log("[yellow]Operation cancelled by user.[/yellow]")
+                return {"success": False, "error": "Cancelled by user"}
+
             meta = metadata_map.get(key, {})
             front_path, back_path = process_card_asset(
                 card=card,
@@ -390,6 +412,9 @@ def main():
                 completed=idx,
                 description=f"[yellow]Processing card {idx}/{len(unique_cards)}: [white]{card.name[:25]}[/white]"
             )
+            if progress_callback:
+                pct = (idx / max(len(unique_cards), 1)) * 100.0
+                progress_callback("upscale", idx, len(unique_cards), pct, f"Processing card {idx}/{len(unique_cards)}: {card.name[:25]}")
 
         progress.update(process_task, description=f"[green]All {len(unique_cards)} card assets ready.")
 
@@ -398,13 +423,33 @@ def main():
         deck_items = []
         unprintable: List[Tuple[str, str, CardEntry]] = []
 
-        for deck in decks:
-            div_front, div_back = generate_divider_card(
-                label=deck.label,
-                cache_dir=config.cache_dir,
-                config=config,
-                dpi=target_dpi
-            )
+        for d_idx, deck in enumerate(decks, start=1):
+            if is_cancelled and is_cancelled():
+                log("[yellow]Operation cancelled by user.[/yellow]")
+                return {"success": False, "error": "Cancelled by user"}
+
+            if progress_callback:
+                pct = (d_idx / max(len(decks), 1)) * 100.0
+                progress_callback("dividers", d_idx, len(decks), pct, f"Generating divider cards ({d_idx}/{len(decks)}): {deck.label}")
+
+            card_count = sum(card.qty for card in deck.cards)
+            if getattr(config, "two_divider_cards", True):
+                dividers = generate_divider_cards(
+                    label=deck.label,
+                    person=deck.person,
+                    card_count=card_count,
+                    cache_dir=config.cache_dir,
+                    config=config,
+                    dpi=target_dpi
+                )
+            else:
+                div_front, div_back = generate_divider_card(
+                    label=deck.label,
+                    cache_dir=config.cache_dir,
+                    config=config,
+                    dpi=target_dpi
+                )
+                dividers = [(div_front, div_back)]
 
             card_pairs = []
             # Check for deck-specific custom cardback
@@ -450,13 +495,13 @@ def main():
 
             deck_items.append({
                 "deck": deck,
-                "divider": (div_front, div_back),
+                "dividers": dividers,
                 "card_pairs": card_pairs
             })
 
         # Step D: Compile PDF(s) into local output directory
         total_cards_for_pdf = max(
-            sum(len(item["card_pairs"]) + (1 if item.get("divider") else 0) for item in deck_items),
+            sum(len(item["card_pairs"]) + len(item.get("dividers", [])) for item in deck_items),
             1
         )
         pdf_task = progress.add_task(
@@ -473,6 +518,9 @@ def main():
                 total=tot,
                 description=f"[magenta]Compiling PDF document(s)... ({curr}/{tot} cards)"
             )
+            if progress_callback:
+                pct = (curr / max(tot, 1)) * 100.0
+                progress_callback("pdf", curr, tot, pct, f"Compiling PDF document(s)... ({curr}/{tot} cards)")
 
         file_summaries = pdf_builder.build_pdfs(
             deck_items=deck_items,
@@ -482,18 +530,8 @@ def main():
         progress.update(pdf_task, description="[green]PDF compilation complete.")
 
         # Step E: Sync to Google Drive if configured.
-        #
-        # This writes directly into the Google Drive-mounted folder, which is
-        # backed by a cloud-sync virtual filesystem (not plain local disk) --
-        # a multi-gigabyte upscaled PDF can take a long time to hand off to it
-        # regardless of what this script does. copy_file_with_progress (via
-        # GDriveManager.sync_file_to_drive) at least reports real byte
-        # progress instead of looking frozen, and writes to a temp file next
-        # to the destination so an interrupted or slow sync never leaves a
-        # truncated PDF there. The complete file is always already sitting in
-        # the local `output/` directory regardless of how this step goes.
         if gdrive.enabled and gdrive.output_dir:
-            console.print(
+            log(
                 "[dim]Note: writing large files directly into a Google Drive-synced folder is "
                 "inherently much slower than local disk -- this can take a while for big upscaled "
                 f"PDFs. The finished file is already saved locally at '{local_output_dir}/' "
@@ -520,10 +558,8 @@ def main():
                     gdrive.sync_file_to_drive(s["file"], progress_callback=on_sync_progress)
                     progress.update(sync_task, description=f"[green]Synced {os.path.basename(s['file'])} to Google Drive.")
                 except OSError as ex:
-                    # The expensive PDF work is already done and safe on local
-                    # disk -- never let a flaky cloud mount take that with it.
                     progress.update(sync_task, description=f"[bold red]Google Drive sync failed for {os.path.basename(s['file'])}: {ex}")
-                    console.print(
+                    log(
                         f"[bold red]⚠ Could not sync '{s['file']}' to Google Drive:[/bold red] {ex}\n"
                         f"[yellow]The file is still safe locally at '{s['file']}'. "
                         "Copy it to Drive manually once the issue is resolved.[/yellow]"
@@ -535,30 +571,29 @@ def main():
             try:
                 gdrive.sync_file_to_drive(csv_output_path)
             except OSError as ex:
-                console.print(f"[bold red]⚠ Could not sync summary CSV to Google Drive:[/bold red] {ex}")
+                log(f"[bold red]⚠ Could not sync summary CSV to Google Drive:[/bold red] {ex}")
         else:
             csv_output_path = os.path.join(local_output_dir, config.output_csv)
             write_summary_csv(csv_output_path, person_card_counts, file_summaries)
 
     # 7. Final Report
-    console.print("\n[bold green]✓ Processing Complete![/bold green]")
-    console.print(f"Summary CSV: [bold]{csv_output_path}[/bold]")
-    console.print("[bold]Generated PDF Files (Local):[/bold]")
+    log("\n[bold green]✓ Processing Complete![/bold green]")
+    log(f"Summary CSV: [bold]{csv_output_path}[/bold]")
+    log("[bold]Generated PDF Files (Local):[/bold]")
     for s in file_summaries:
         size_mb = os.path.getsize(s["file"]) / (1024 * 1024)
-        console.print(f"  • [cyan]{s['file']}[/cyan] ({s['cards']} cards, {s['pages']} pages, {size_mb:.1f} MB) - [yellow]{s['label']}[/yellow]")
+        log(f"  • [cyan]{s['file']}[/cyan] ({s['cards']} cards, {s['pages']} pages, {size_mb:.1f} MB) - [yellow]{s['label']}[/yellow]")
 
     if gdrive.enabled and gdrive.output_dir:
-        console.print(f"[bold green]✓ Synchronized to Google Drive:[/bold green] {gdrive.output_dir}")
+        log(f"[bold green]✓ Synchronized to Google Drive:[/bold green] {gdrive.output_dir}")
 
     if not config.reset_bleed_cache:
         report_superseded_png_bleed_cache(config)
 
-    # 8. Unprintable cards. Reported last so it is the final thing on screen, and
-    #    with a non-zero exit code so an automated caller cannot miss it.
+    # 8. Unprintable cards
     if unprintable:
         missing_qty = sum(card.qty for _, _, card in unprintable)
-        console.print(
+        log(
             f"\n[bold red]⚠ {missing_qty} card(s) across {len(unprintable)} entries "
             f"could NOT be printed and are MISSING from the PDFs:[/bold red]"
         )
@@ -571,13 +606,38 @@ def main():
                 back_info = f" &&& {card.back_name}{back_printing}"
             by_person.setdefault(person, []).append(f"{card.qty}x {card.name}{printing}{back_info}  [{label}]")
         for person in sorted(by_person):
-            console.print(f"  [bold]{person}[/bold]")
+            log(f"  [bold]{person}[/bold]")
             for entry in by_person[person]:
-                console.print(f"    • [red]{entry}[/red]")
-        console.print(
+                log(f"    • [red]{entry}[/red]")
+        log(
             "\n[yellow]These cards were ordered but no image could be resolved. "
             "Fix the decklist or the Scryfall printing and re-run before printing.[/yellow]"
         )
+
+    if progress_callback:
+        progress_callback("done", total_cards_for_pdf, total_cards_for_pdf, 100.0, "All PDF documents compiled successfully!")
+
+    return {
+        "success": True,
+        "file_summaries": file_summaries,
+        "csv_path": csv_output_path,
+        "total_cards": total_cards_across_decks,
+        "unique_cards": len(unique_cards),
+        "unprintable": unprintable,
+        "decks": len(decks),
+    }
+
+def main():
+    config = parse_arguments()
+    if getattr(config, "open_ui", False):
+        from generator_server import run_server
+        run_server(config)
+        return
+
+    result = run_pipeline(config)
+    if not result.get("success", False):
+        sys.exit(1)
+    if result.get("unprintable"):
         sys.exit(4)
 
 if __name__ == "__main__":

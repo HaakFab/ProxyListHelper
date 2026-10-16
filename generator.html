@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MTG Proxy Generator // Pre-Press Control Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-canvas: #121214;
+      --bg-surface: #1C1C20;
+      --bg-paper: #F4F0EA;
+      --text-light: #F4F0EA;
+      --text-dark: #111111;
+      --text-muted: #8E8D8A;
+      --border-dark: #2E2E34;
+      --border-ink: #111111;
+      
+      --accent-acid: #CCFF00;
+      --accent-riso: #FF3B00;
+      --accent-cyan: #00E5FF;
+      --accent-blue: #0069FF;
+      --accent-yellow: #FFEB00;
+      
+      --font-display: 'Syne', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+
+      --shadow-hard: 4px 4px 0px #000000;
+      --shadow-hard-acid: 4px 4px 0px var(--accent-acid);
+      --shadow-hard-paper: 6px 6px 0px #000000;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: var(--font-body);
+      background-color: var(--bg-canvas);
+      background-image: 
+        linear-gradient(to right, rgba(46, 46, 52, 0.45) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(46, 46, 52, 0.45) 1px, transparent 1px);
+      background-size: 24px 24px;
+      background-position: center top;
+      color: var(--text-light);
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    /* Top Striped Ribbon (Divider Card Preview) */
+    .divider-stripe-ribbon {
+      height: 8px;
+      width: 100%;
+      background: repeating-linear-gradient(
+        90deg,
+        #FFFFFF 0px, #FFFFFF 12px,
+        #EB0F28 12px, #EB0F28 24px,
+        #FFEB00 24px, #FFEB00 36px,
+        #0069FF 36px, #0069FF 48px
+      );
+    }
+
+    header {
+      background: var(--bg-surface);
+      border-bottom: 2px solid var(--border-dark);
+      padding: 1.25rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .brand-logo {
+      background: var(--accent-acid);
+      color: var(--text-dark);
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 1.1rem;
+      padding: 0.35rem 0.65rem;
+      border: 2px solid var(--border-ink);
+      box-shadow: 2px 2px 0px #000;
+    }
+
+    .brand h1 {
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      letter-spacing: -0.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .brand p {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .status-badge {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.35rem 0.75rem;
+      border: 2px solid var(--border-dark);
+      border-radius: 2px;
+      background: #18181B;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-acid);
+      box-shadow: 0 0 8px var(--accent-acid);
+    }
+
+    .status-dot.running {
+      background: var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan);
+      animation: pulse 1s infinite alternate;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; transform: scale(0.9); }
+      100% { opacity: 1; transform: scale(1.1); }
+    }
+
+    .btn {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 0.6rem 1.1rem;
+      border: 2px solid var(--border-ink);
+      box-shadow: var(--shadow-hard);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+      transition: all 0.1s ease;
+      user-select: none;
+    }
+
+    .btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 5px 5px 0px #000;
+    }
+
+    .btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0px #000;
+    }
+
+    .btn-acid {
+      background: var(--accent-acid);
+      color: var(--text-dark);
+    }
+
+    .btn-paper {
+      background: var(--bg-paper);
+      color: var(--text-dark);
+    }
+
+    .btn-dark {
+      background: var(--bg-surface);
+      color: var(--text-light);
+      border-color: var(--border-dark);
+    }
+
+    .btn-riso {
+      background: var(--accent-riso);
+      color: #FFF;
+    }
+
+    .btn-cyan {
+      background: var(--accent-cyan);
+      color: var(--text-dark);
+    }
+
+    .btn-sm {
+      padding: 0.35rem 0.75rem;
+      font-size: 0.75rem;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 2rem;
+    }
+
+    @media (max-width: 1080px) {
+      .container { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--bg-surface);
+      border: 2px solid var(--border-dark);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-hard);
+      margin-bottom: 2rem;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--border-dark);
+      padding-bottom: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .panel-title {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .panel-tag {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      background: var(--border-dark);
+      color: var(--accent-acid);
+      padding: 0.2rem 0.5rem;
+      border-radius: 2px;
+    }
+
+    /* Online Sync Bar */
+    .sync-bar {
+      background: #17171A;
+      border: 1px dashed var(--border-dark);
+      padding: 1rem;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr auto;
+      gap: 1rem;
+      align-items: end;
+      margin-bottom: 1.25rem;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .field-group label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .input-text, .select-input {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      background: #111113;
+      border: 1px solid var(--border-dark);
+      color: var(--text-light);
+      padding: 0.55rem 0.75rem;
+      outline: none;
+      transition: border-color 0.15s ease;
+      width: 100%;
+    }
+
+    .input-text:focus, .select-input:focus {
+      border-color: var(--accent-acid);
+      box-shadow: 0 0 0 1px var(--accent-acid);
+    }
+
+    /* Checklist Table */
+    .table-container {
+      max-height: 380px;
+      overflow-y: auto;
+      border: 1px solid var(--border-dark);
+      background: #141416;
+      margin-bottom: 1rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+    }
+
+    th {
+      background: #1F1F24;
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 2px solid var(--border-dark);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    td {
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid rgba(46, 46, 52, 0.6);
+    }
+
+    tr:hover td {
+      background: rgba(204, 255, 0, 0.04);
+    }
+
+    tr.selected td {
+      background: rgba(204, 255, 0, 0.07);
+    }
+
+    .badge-cb {
+      background: rgba(0, 229, 255, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid var(--accent-cyan);
+      font-size: 0.65rem;
+      padding: 0.15rem 0.4rem;
+      font-weight: 700;
+    }
+
+    .badge-src {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.4rem;
+      border: 1px solid var(--border-dark);
+      color: var(--text-muted);
+    }
+
+    .live-stats {
+      background: var(--bg-paper);
+      color: var(--text-dark);
+      border: 2px solid var(--border-ink);
+      padding: 1rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow-hard);
+      font-family: var(--font-mono);
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      color: #666;
+      font-weight: 700;
+    }
+
+    .stat-value {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #111;
+    }
+
+    .stat-waste {
+      color: var(--accent-riso);
+    }
+
+    /* Settings Grid */
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+
+    @media (max-width: 600px) {
+      .settings-grid { grid-template-columns: 1fr; }
+    }
+
+    .card-config {
+      background: #17171B;
+      border: 1px solid var(--border-dark);
+      padding: 1rem;
+      position: relative;
+    }
+
+    .card-config h3 {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--accent-acid);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px dashed var(--border-dark);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
+
+    .toggle-row:last-child { border-bottom: none; }
+
+    /* Custom Switch Checkbox */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 22px;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #2E2E34;
+      transition: .2s;
+      border: 1px solid #111;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #FFF;
+      transition: .2s;
+    }
+
+    input:checked + .slider { background-color: var(--accent-acid); }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+      background-color: #111;
+    }
+
+    /* Stripe Visual Sample */
+    .stripe-demo {
+      height: 24px;
+      width: 100%;
+      background: repeating-linear-gradient(
+        90deg,
+        #FFFFFF 0px, #FFFFFF 12px,
+        #EB0F28 12px, #EB0F28 24px,
+        #FFEB00 24px, #FFEB00 36px,
+        #0069FF 36px, #0069FF 48px
+      );
+      margin-top: 0.5rem;
+      border: 1px solid var(--border-dark);
+    }
+
+    /* Progress & Stepper */
+    .stepper {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .step-icon {
+      width: 28px;
+      height: 28px;
+      background: #1F1F24;
+      border: 2px solid var(--border-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--text-muted);
+    }
+
+    .step-item.active .step-icon {
+      background: var(--accent-acid);
+      color: var(--text-dark);
+      border-color: var(--border-ink);
+      box-shadow: 2px 2px 0px #000;
+    }
+
+    .step-item.done .step-icon {
+      background: var(--accent-cyan);
+      color: var(--text-dark);
+      border-color: var(--border-ink);
+    }
+
+    .step-label {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .step-item.active .step-label { color: var(--accent-acid); font-weight: 700; }
+
+    .progress-bar-wrap {
+      height: 24px;
+      background: #111;
+      border: 2px solid var(--border-dark);
+      overflow: hidden;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: repeating-linear-gradient(
+        45deg,
+        var(--accent-acid),
+        var(--accent-acid) 14px,
+        #bce600 14px,
+        #bce600 28px
+      );
+      transition: width 0.3s ease;
+    }
+
+    .progress-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: #FFF;
+      text-shadow: 1px 1px 2px #000;
+      pointer-events: none;
+    }
+
+    /* Terminal Log Window */
+    .terminal-box {
+      background: #0C0C0E;
+      border: 2px solid var(--border-dark);
+      padding: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      height: 280px;
+      overflow-y: auto;
+      color: #A0A0A5;
+      line-height: 1.45;
+    }
+
+    .log-line {
+      margin-bottom: 0.25rem;
+      word-break: break-all;
+    }
+
+    .log-line.cyan { color: var(--accent-cyan); }
+    .log-line.acid { color: var(--accent-acid); font-weight: 700; }
+    .log-line.red { color: var(--accent-riso); font-weight: 700; }
+
+    /* Results Card */
+    .results-card {
+      background: #1E231C;
+      border: 2px solid var(--accent-acid);
+      padding: 1.25rem;
+      margin-top: 1.25rem;
+      box-shadow: var(--shadow-hard);
+    }
+
+    .results-card h4 {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--accent-acid);
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+
+    .file-item {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      background: rgba(0,0,0,0.4);
+      padding: 0.5rem 0.75rem;
+      border-left: 3px solid var(--accent-acid);
+      margin-bottom: 0.5rem;
+    }
+
+    .suborder-calc-pill {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      background: #25252B;
+      color: var(--accent-acid);
+      padding: 0.3rem 0.6rem;
+      border: 1px solid var(--border-dark);
+      display: inline-block;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="divider-stripe-ribbon"></div>
+
+  <header>
+    <div class="brand">
+      <div class="brand-logo">MPC//PDF</div>
+      <div>
+        <h1>Moxfield Pre-Press Generator</h1>
+        <p>Interactive Control Center // High-Resolution Proxy Engine</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-paper btn-sm" onclick="openOutputFinder()">
+        📁 Open Output in Finder
+      </button>
+      <div class="status-badge">
+        <div id="statusDot" class="status-dot"></div>
+        <span id="statusText">IDLE</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Left Column: Decks & Parameters -->
+    <main>
+      <!-- Section 1: Decklist Checklist & Online Portal Sync -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>1. Decklist Selection</span>
+            <span class="panel-tag" id="deckCountTag">0 Decks</span>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-dark btn-sm" onclick="selectAllDecks(true)">Select All</button>
+            <button class="btn btn-dark btn-sm" onclick="selectAllDecks(false)">Deselect</button>
+            <button class="btn btn-dark btn-sm" onclick="loadLocalDecks()">↻ Refresh Local</button>
+          </div>
+        </div>
+
+        <!-- Sync Bar for Render / Online Portal -->
+        <div class="sync-bar">
+          <div class="field-group">
+            <label>Remote Portal URL</label>
+            <input type="text" id="portalUrl" class="input-text" value="https://proxy-list-helper.onrender.com" placeholder="https://proxy-list-helper.onrender.com">
+          </div>
+          <div class="field-group">
+            <label>Admin Password</label>
+            <input type="password" id="adminPassword" class="input-text" placeholder="Enter password...">
+          </div>
+          <button class="btn btn-cyan btn-sm" onclick="pullOnlineDecks()">
+            ☁ Fetch Orders
+          </button>
+        </div>
+
+        <!-- Table Checklist -->
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 36px;"><input type="checkbox" id="masterCheckbox" onchange="toggleAllCheckboxes(this)"></th>
+                <th>Person / Submitter</th>
+                <th>Deck Name</th>
+                <th style="text-align: right;">Cards</th>
+                <th style="text-align: center;">Card Back</th>
+                <th style="text-align: center;">Source</th>
+              </tr>
+            </thead>
+            <tbody id="deckTableBody">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                  Scanning for decklists in input/ directory...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Live Calculations Bar -->
+        <div class="live-stats">
+          <div class="stat-item">
+            <span class="stat-label">Selected Decks</span>
+            <span class="stat-value" id="statSelectedDecks">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Total Cards (+Dividers)</span>
+            <span class="stat-value" id="statTotalCards">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Est. Sheets (18-up)</span>
+            <span class="stat-value" id="statSheets">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Paper Waste Slots</span>
+            <span class="stat-value stat-waste" id="statWaste">0 slots</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Suborders Est.</span>
+            <span class="stat-value" id="statSuborders" style="color: var(--accent-cyan); font-size: 1.1rem;">1 batch</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Detailed Print & Cut Parameters -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>2. Print & Cut Settings</span>
+            <span class="panel-tag">Pre-Press Parameters</span>
+          </div>
+          <button class="btn btn-dark btn-sm" onclick="resetToDefaults()">Reset Defaults</button>
+        </div>
+
+        <div class="settings-grid">
+          <!-- Render Engine Card -->
+          <div class="card-config">
+            <h3>⚙ Render Engine</h3>
+            <div class="field-group" style="margin-bottom: 0.75rem;">
+              <label>Processing Mode</label>
+              <select id="cfgMode" class="select-input" onchange="onModeChange()">
+                <option value="upscaled">Real-ESRGAN AI (600 DPI Ultra)</option>
+                <option value="scryfall">Scryfall Direct (300 DPI Fast)</option>
+              </select>
+            </div>
+            <div class="field-group" style="margin-bottom: 0.75rem;" id="upscaleScaleGroup">
+              <label>Upscale Scale Factor</label>
+              <select id="cfgUpscaleFactor" class="select-input">
+                <option value="2">2x (600 DPI - Recommended)</option>
+                <option value="4">4x (1200 DPI - High VRAM)</option>
+              </select>
+            </div>
+            <div class="field-group" style="margin-bottom: 0.75rem;">
+              <label>Hardware Device</label>
+              <select id="cfgDevice" class="select-input">
+                <option value="auto">Auto-Detect (Apple Silicon MPS / CUDA)</option>
+                <option value="mps">MPS (Apple Silicon GPU)</option>
+                <option value="cuda">CUDA (NVIDIA GPU)</option>
+                <option value="cpu">CPU (Compatibility)</option>
+              </select>
+            </div>
+            <div class="toggle-row">
+              <span>Redact Copyright Stamps</span>
+              <label class="switch">
+                <input type="checkbox" id="cfgRemoveCopyright" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Divider Cards Card -->
+          <div class="card-config">
+            <h3>📑 Divider Cards (Striped)</h3>
+            <div class="toggle-row">
+              <div>
+                <strong>Two Divider Cards per Deck</strong>
+                <p style="font-size: 0.7rem; color: var(--text-muted);">Card 1: Large Person. Card 2: Card Count.</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="cfgTwoDividers" checked onchange="updateLiveStats()">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div style="margin-top: 0.75rem;">
+              <span style="font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted);">
+                Edge-to-Edge Vertical Stripes (White/Red/Yellow/Blue)
+              </span>
+              <div class="stripe-demo" title="Thin repeating stripes for side-angle visibility"></div>
+            </div>
+            <div class="toggle-row" style="margin-top: 0.5rem;">
+              <span>Reset Bleed/Divider Cache</span>
+              <label class="switch">
+                <input type="checkbox" id="cfgResetBleedCache">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Suborder Cut-Stack Centering Card -->
+          <div class="card-config">
+            <h3>✂ Cut & Stack Centering</h3>
+            <div class="toggle-row">
+              <div>
+                <strong>Smart Suborder Partitioning</strong>
+                <p style="font-size: 0.7rem; color: var(--text-muted);">Groups people without splitting decks to minimize blade draw</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="cfgEnableSuborders" onchange="updateLiveStats()">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="field-group" style="margin-top: 0.75rem;">
+              <label>Cards Per Sheet</label>
+              <select id="cfgCardsPerSheet" class="select-input" onchange="updateLiveStats()">
+                <option value="18">18 Cards / Sheet (3x6 Grid)</option>
+                <option value="16">16 Cards / Sheet (4x4 Grid)</option>
+              </select>
+            </div>
+            <div class="field-group" style="margin-top: 0.75rem;">
+              <label>Target Suborder Cards</label>
+              <input type="number" id="cfgTargetSuborder" class="input-text" value="1440" step="18" onchange="updateLiveStats()">
+            </div>
+            <div id="suborderPill" class="suborder-calc-pill">
+              Optimal suborders will be auto-calculated.
+            </div>
+          </div>
+
+          <!-- Dimensions & Bleed Card -->
+          <div class="card-config">
+            <h3>📐 Dimensions & Splitting</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem;">
+              <div class="field-group">
+                <label>Cut Width (mm)</label>
+                <input type="number" id="cfgCutWidth" class="input-text" value="63.0" step="0.5">
+              </div>
+              <div class="field-group">
+                <label>Cut Height (mm)</label>
+                <input type="number" id="cfgCutHeight" class="input-text" value="88.0" step="0.5">
+              </div>
+            </div>
+            <div class="field-group" style="margin-bottom: 0.75rem;">
+              <label>Bleed Margin (mm / side)</label>
+              <input type="number" id="cfgBleedMargin" class="input-text" value="3.0" step="0.5">
+            </div>
+            <div class="field-group">
+              <label>Output PDF Split</label>
+              <select id="cfgBreakBy" class="select-input">
+                <option value="none">Single Combined PDF</option>
+                <option value="name">Split by Person</option>
+                <option value="document">Split by Input Document</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Right Sidebar: Execution & Real-Time Monitor -->
+    <aside>
+      <div class="panel" style="position: sticky; top: 1.5rem;">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>3. Monitor & Run</span>
+          </div>
+        </div>
+
+        <!-- Start Run CTA Button -->
+        <button id="btnStartRun" class="btn btn-acid" style="width: 100%; justify-content: center; font-size: 1.05rem; padding: 0.9rem; margin-bottom: 1.5rem;" onclick="startPrintRun()">
+          ⚡ START PRINT RUN
+        </button>
+
+        <button id="btnCancelRun" class="btn btn-riso btn-sm" style="width: 100%; justify-content: center; display: none; margin-bottom: 1.5rem;" onclick="cancelPrintRun()">
+          ✕ Cancel Pipeline
+        </button>
+
+        <!-- Stepper -->
+        <div class="stepper">
+          <div class="step-item" id="stepScryfall">
+            <div class="step-icon">1</div>
+            <div class="step-label">Assets</div>
+          </div>
+          <div class="step-item" id="stepUpscale">
+            <div class="step-icon">2</div>
+            <div class="step-label">Upscale</div>
+          </div>
+          <div class="step-item" id="stepDividers">
+            <div class="step-icon">3</div>
+            <div class="step-label">Dividers</div>
+          </div>
+          <div class="step-item" id="stepPdf">
+            <div class="step-icon">4</div>
+            <div class="step-label">PDF</div>
+          </div>
+          <div class="step-item" id="stepDone">
+            <div class="step-icon">✓</div>
+            <div class="step-label">Ready</div>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-bar-wrap">
+          <div id="progressFill" class="progress-bar-fill"></div>
+          <div id="progressPercent" class="progress-text">0.0%</div>
+        </div>
+        <p id="progressMessage" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; text-align: center;">
+          Ready to run.
+        </p>
+
+        <!-- Live Terminal Log Console -->
+        <div class="field-group" style="margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; flex-direction: row;">
+          <label>Execution Log</label>
+          <button class="btn btn-dark btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.65rem;" onclick="clearLogs()">Clear</button>
+        </div>
+        <div id="terminalLogs" class="terminal-box">
+          <div class="log-line">[SYSTEM] Ready. Select decklists and press Start Print Run.</div>
+        </div>
+
+        <!-- Completed Run Summary Card -->
+        <div id="resultsCard" class="results-card" style="display: none;">
+          <h4>✓ Output PDF(s) Ready</h4>
+          <div id="resultsFileList"></div>
+          <button class="btn btn-paper btn-sm" style="width: 100%; margin-top: 0.75rem; justify-content: center;" onclick="openOutputFinder()">
+            📁 Show in Finder
+          </button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    let localDecks = [];
+    let onlineDecks = [];
+    let isRunning = false;
+
+    // Load initial data
+    window.addEventListener('DOMContentLoaded', () => {
+      loadConfig();
+      loadLocalDecks();
+      initEventStream();
+    });
+
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        document.getElementById('cfgMode').value = data.mode;
+        document.getElementById('cfgUpscaleFactor').value = data.upscale_factor;
+        document.getElementById('cfgDevice').value = data.device;
+        document.getElementById('cfgCutWidth').value = data.cut_width_mm;
+        document.getElementById('cfgCutHeight').value = data.cut_height_mm;
+        document.getElementById('cfgBleedMargin').value = data.bleed_margin_mm;
+        document.getElementById('cfgBreakBy').value = data.break_by;
+        document.getElementById('cfgTwoDividers').checked = data.two_divider_cards;
+        document.getElementById('cfgEnableSuborders').checked = data.enable_suborders;
+        document.getElementById('cfgCardsPerSheet').value = data.cards_per_sheet;
+        document.getElementById('cfgTargetSuborder').value = data.target_suborder_cards;
+        document.getElementById('cfgRemoveCopyright').checked = data.remove_copyright;
+        onModeChange();
+      } catch (e) {
+        console.error('Config fetch failed:', e);
+      }
+    }
+
+    function onModeChange() {
+      const mode = document.getElementById('cfgMode').value;
+      const group = document.getElementById('upscaleScaleGroup');
+      group.style.opacity = (mode === 'upscaled') ? '1' : '0.4';
+    }
+
+    async function loadLocalDecks() {
+      try {
+        const res = await fetch('/api/local-decks');
+        const data = await res.json();
+        localDecks = data.decks || [];
+        renderDeckTable();
+      } catch (e) {
+        console.error('Local decks scan failed:', e);
+      }
+    }
+
+    async function pullOnlineDecks() {
+      const portalUrl = document.getElementById('portalUrl').value.trim();
+      const adminPassword = document.getElementById('adminPassword').value;
+
+      appendLog(`[PORTAL] Connecting to ${portalUrl}...`, 'cyan');
+
+      try {
+        const res = await fetch('/api/fetch-online-decks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ portal_url: portalUrl, admin_password: adminPassword })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          appendLog(`[ERROR] Portal request failed: ${data.error}`, 'red');
+          alert(`Could not fetch orders from portal: ${data.error}`);
+          return;
+        }
+
+        onlineDecks = data.decks || [];
+        appendLog(`[PORTAL] Found ${onlineDecks.length} online decklist(s). Syncing into local input/...`, 'acid');
+
+        // Automatically import into input directory
+        const importRes = await fetch('/api/import-online-decks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ portal_url: portalUrl, admin_password: adminPassword })
+        });
+        const importData = await importRes.json();
+
+        if (importData.success) {
+          localDecks = importData.decks || [];
+          renderDeckTable();
+          appendLog(`[PORTAL] Synced and prepared ${localDecks.length} local decklist(s)!`, 'acid');
+        }
+      } catch (e) {
+        appendLog(`[ERROR] ${e.message}`, 'red');
+      }
+    }
+
+    function renderDeckTable() {
+      const tbody = document.getElementById('deckTableBody');
+      tbody.innerHTML = '';
+
+      if (localDecks.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+              No decklists found in input/ folder. Click "Fetch Orders" from cloud portal or place .txt files into input/.
+            </td>
+          </tr>
+        `;
+        document.getElementById('deckCountTag').textContent = '0 Decks';
+        updateLiveStats();
+        return;
+      }
+
+      document.getElementById('deckCountTag').textContent = `${localDecks.length} Decks`;
+
+      localDecks.forEach((d, idx) => {
+        const tr = document.createElement('tr');
+        tr.id = `deck_row_${idx}`;
+        tr.className = 'selected';
+
+        const cbBadge = d.has_custom_back 
+          ? `<span class="badge-cb">CUSTOM BACK</span>` 
+          : `<span style="color: var(--text-muted); font-size: 0.7rem;">Default</span>`;
+
+        tr.innerHTML = `
+          <td><input type="checkbox" class="deck-cb" data-path="${d.path}" data-cards="${d.card_count}" data-person="${d.person}" checked onchange="onDeckToggle(this, ${idx})"></td>
+          <td style="font-weight: 700; color: #FFF;">${escapeHtml(d.person)}</td>
+          <td>${escapeHtml(d.label)}</td>
+          <td style="text-align: right; font-weight: 700; color: var(--accent-acid);">${d.card_count}</td>
+          <td style="text-align: center;">${cbBadge}</td>
+          <td style="text-align: center;"><span class="badge-src">${d.source.toUpperCase()}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('masterCheckbox').checked = true;
+      updateLiveStats();
+    }
+
+    function onDeckToggle(cb, idx) {
+      const row = document.getElementById(`deck_row_${idx}`);
+      if (cb.checked) {
+        row.classList.add('selected');
+      } else {
+        row.classList.remove('selected');
+      }
+      updateLiveStats();
+    }
+
+    function toggleAllCheckboxes(masterCb) {
+      selectAllDecks(masterCb.checked);
+    }
+
+    function selectAllDecks(select) {
+      const cbs = document.querySelectorAll('.deck-cb');
+      cbs.forEach((cb, idx) => {
+        cb.checked = select;
+        const row = document.getElementById(`deck_row_${idx}`);
+        if (row) {
+          if (select) row.classList.add('selected');
+          else row.classList.remove('selected');
+        }
+      });
+      document.getElementById('masterCheckbox').checked = select;
+      updateLiveStats();
+    }
+
+    function updateLiveStats() {
+      const cbs = document.querySelectorAll('.deck-cb:checked');
+      let totalCards = 0;
+      let selectedDecks = cbs.length;
+
+      const twoDividers = document.getElementById('cfgTwoDividers').checked;
+      const dividerMultiplier = twoDividers ? 2 : 1;
+
+      cbs.forEach(cb => {
+        const count = parseInt(cb.getAttribute('data-cards') || '0', 10);
+        totalCards += count + dividerMultiplier;
+      });
+
+      const cardsPerSheet = parseInt(document.getElementById('cfgCardsPerSheet').value, 10);
+      const targetSuborder = parseInt(document.getElementById('cfgTargetSuborder').value, 10) || 1440;
+      const enableSuborders = document.getElementById('cfgEnableSuborders').checked;
+
+      const sheets = totalCards > 0 ? Math.ceil(totalCards / cardsPerSheet) : 0;
+      const waste = totalCards > 0 ? (sheets * cardsPerSheet) - totalCards : 0;
+
+      document.getElementById('statSelectedDecks').textContent = selectedDecks;
+      document.getElementById('statTotalCards').textContent = totalCards;
+      document.getElementById('statSheets').textContent = sheets;
+      document.getElementById('statWaste').textContent = `${waste} slots`;
+
+      if (enableSuborders && totalCards > 0) {
+        const suborderCount = Math.max(1, Math.round(totalCards / targetSuborder));
+        document.getElementById('statSuborders').textContent = `${suborderCount} batch(es)`;
+        document.getElementById('suborderPill').textContent = 
+          `Auto-grouping ${selectedDecks} decks into ~${suborderCount} suborders of ~${targetSuborder} cards.`;
+      } else {
+        document.getElementById('statSuborders').textContent = `1 Single Batch`;
+        document.getElementById('suborderPill').textContent = `Single output print sequence.`;
+      }
+    }
+
+    async function startPrintRun() {
+      const selectedPaths = [];
+      document.querySelectorAll('.deck-cb:checked').forEach(cb => {
+        selectedPaths.push(cb.getAttribute('data-path'));
+      });
+
+      if (selectedPaths.length === 0) {
+        alert('Please select at least one decklist to print!');
+        return;
+      }
+
+      const payload = {
+        mode: document.getElementById('cfgMode').value,
+        upscale_factor: parseInt(document.getElementById('cfgUpscaleFactor').value, 10),
+        device: document.getElementById('cfgDevice').value,
+        cut_width_mm: parseFloat(document.getElementById('cfgCutWidth').value),
+        cut_height_mm: parseFloat(document.getElementById('cfgCutHeight').value),
+        bleed_margin_mm: parseFloat(document.getElementById('cfgBleedMargin').value),
+        bleed_mode: 'target_mm',
+        break_by: document.getElementById('cfgBreakBy').value,
+        two_divider_cards: document.getElementById('cfgTwoDividers').checked,
+        enable_suborders: document.getElementById('cfgEnableSuborders').checked,
+        cards_per_sheet: parseInt(document.getElementById('cfgCardsPerSheet').value, 10),
+        target_suborder_cards: parseInt(document.getElementById('cfgTargetSuborder').value, 10),
+        remove_copyright: document.getElementById('cfgRemoveCopyright').checked,
+        reset_bleed_cache: document.getElementById('cfgResetBleedCache').checked,
+        selected_deck_paths: selectedPaths
+      };
+
+      appendLog('[RUNNER] Dispatching print run request...', 'acid');
+      document.getElementById('resultsCard').style.display = 'none';
+
+      try {
+        const res = await fetch('/api/start-run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.error) {
+          alert(data.error);
+        } else {
+          setRunningState(true);
+        }
+      } catch (e) {
+        alert('Failed to start run: ' + e.message);
+      }
+    }
+
+    async function cancelPrintRun() {
+      if (confirm('Cancel the running print run?')) {
+        await fetch('/api/cancel', { method: 'POST' });
+        appendLog('[RUNNER] Cancellation requested by user...', 'red');
+      }
+    }
+
+    function initEventStream() {
+      const evtSource = new EventSource('/api/events');
+      evtSource.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          handleStateUpdate(data);
+        } catch (ex) {
+          console.error('SSE JSON parse error:', ex);
+        }
+      };
+      evtSource.onerror = () => {
+        // Fallback polling if SSE disconnects
+        setTimeout(pollStatusFallback, 1500);
+      };
+    }
+
+    async function pollStatusFallback() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        handleStateUpdate(data);
+      } catch (e) {}
+    }
+
+    function handleStateUpdate(data) {
+      const { job_status, stage, progress, new_logs, results, error } = data;
+
+      setRunningState(job_status === 'running');
+
+      // Update Stepper
+      updateStepper(stage, job_status);
+
+      // Update Progress Bar
+      if (progress) {
+        const pct = progress.percent || 0;
+        document.getElementById('progressFill').style.width = `${pct}%`;
+        document.getElementById('progressPercent').textContent = `${pct}%`;
+        document.getElementById('progressMessage').textContent = progress.message || '';
+      }
+
+      // Append new logs
+      if (new_logs && new_logs.length > 0) {
+        new_logs.forEach(log => appendLog(log));
+      }
+
+      // Handle results
+      if (job_status === 'completed' && results && results.file_summaries) {
+        showResults(results);
+      }
+
+      if (job_status === 'error' && error) {
+        appendLog(`[ERROR] ${error}`, 'red');
+      }
+    }
+
+    function setRunningState(running) {
+      isRunning = running;
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      const btnStart = document.getElementById('btnStartRun');
+      const btnCancel = document.getElementById('btnCancelRun');
+
+      if (running) {
+        dot.className = 'status-dot running';
+        text.textContent = 'RUNNING';
+        btnStart.style.display = 'none';
+        btnCancel.style.display = 'inline-flex';
+      } else {
+        dot.className = 'status-dot';
+        text.textContent = 'IDLE';
+        btnStart.style.display = 'inline-flex';
+        btnCancel.style.display = 'none';
+      }
+    }
+
+    function updateStepper(stage, job_status) {
+      const steps = ['stepScryfall', 'stepUpscale', 'stepDividers', 'stepPdf', 'stepDone'];
+      steps.forEach(id => {
+        document.getElementById(id).className = 'step-item';
+      });
+
+      if (stage === 'scryfall') {
+        document.getElementById('stepScryfall').classList.add('active');
+      } else if (stage === 'upscale') {
+        document.getElementById('stepScryfall').classList.add('done');
+        document.getElementById('stepUpscale').classList.add('active');
+      } else if (stage === 'dividers') {
+        document.getElementById('stepScryfall').classList.add('done');
+        document.getElementById('stepUpscale').classList.add('done');
+        document.getElementById('stepDividers').classList.add('active');
+      } else if (stage === 'pdf') {
+        document.getElementById('stepScryfall').classList.add('done');
+        document.getElementById('stepUpscale').classList.add('done');
+        document.getElementById('stepDividers').classList.add('done');
+        document.getElementById('stepPdf').classList.add('active');
+      } else if (job_status === 'completed' || stage === 'done') {
+        steps.forEach(id => document.getElementById(id).classList.add('done'));
+      }
+    }
+
+    function appendLog(line, extraClass = '') {
+      const terminal = document.getElementById('terminalLogs');
+      const div = document.createElement('div');
+      div.className = `log-line ${extraClass}`;
+      div.textContent = line;
+      terminal.appendChild(div);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function clearLogs() {
+      document.getElementById('terminalLogs').innerHTML = '';
+    }
+
+    function showResults(results) {
+      const card = document.getElementById('resultsCard');
+      const list = document.getElementById('resultsFileList');
+      list.innerHTML = '';
+
+      results.file_summaries.forEach(s => {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.innerHTML = `
+          <strong>${escapeHtml(s.label)}</strong><br>
+          <span style="color: var(--accent-cyan);">${escapeHtml(s.file)}</span><br>
+          <span style="color: var(--text-muted); font-size: 0.72rem;">${s.cards} cards • ${s.pages} pages</span>
+        `;
+        list.appendChild(item);
+      });
+
+      card.style.display = 'block';
+    }
+
+    async function openOutputFinder() {
+      try {
+        await fetch('/api/open-folder', { method: 'POST' });
+        appendLog('[SYSTEM] Opened output folder in Finder.', 'acid');
+      } catch (e) {
+        alert('Could not open folder: ' + e.message);
+      }
+    }
+
+    function resetToDefaults() {
+      document.getElementById('cfgMode').value = 'upscaled';
+      document.getElementById('cfgUpscaleFactor').value = '2';
+      document.getElementById('cfgDevice').value = 'auto';
+      document.getElementById('cfgCutWidth').value = '63.0';
+      document.getElementById('cfgCutHeight').value = '88.0';
+      document.getElementById('cfgBleedMargin').value = '3.0';
+      document.getElementById('cfgBreakBy').value = 'none';
+      document.getElementById('cfgTwoDividers').checked = true;
+      document.getElementById('cfgEnableSuborders').checked = false;
+      document.getElementById('cfgCardsPerSheet').value = '18';
+      document.getElementById('cfgTargetSuborder').value = '1440';
+      document.getElementById('cfgRemoveCopyright').checked = true;
+      document.getElementById('cfgResetBleedCache').checked = false;
+      onModeChange();
+      updateLiveStats();
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>

@@ -5,9 +5,10 @@ import os
 import re
 import zipfile
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel
 
-from fastapi import APIRouter, Cookie, Depends, Form, HTTPException, Request, Response
+from fastapi import APIRouter, Cookie, Depends, Form, Header, HTTPException, Request, Response, Body
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -28,8 +29,20 @@ def sanitize_slug(name: str) -> str:
     clean = re.sub(r"[^A-Za-z0-9]", "", name)
     return clean or "Deck"
 
-def is_admin_authenticated(admin_session: Optional[str] = Cookie(None)) -> bool:
-    return admin_session == settings.admin_password
+def is_admin_authenticated(
+    admin_session: Optional[str] = None,
+    x_admin_password: Optional[str] = None,
+    authorization: Optional[str] = None
+) -> bool:
+    if admin_session == settings.admin_password:
+        return True
+    if x_admin_password == settings.admin_password:
+        return True
+    if isinstance(authorization, str) and authorization:
+        token = authorization.replace("Bearer ", "").strip()
+        if token == settings.admin_password:
+            return True
+    return False
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, error: Optional[str] = None, lang: str = "en"):
@@ -260,3 +273,100 @@ def export_master_zip(
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+class ExportDecksRequest(BaseModel):
+    deck_ids: Optional[List[int]] = None
+
+@router.get("/api/decks")
+def api_list_decks(
+    admin_session: Optional[str] = Cookie(None),
+    x_admin_password: Optional[str] = Header(None, alias="X-Admin-Password"),
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Returns JSON list of all submitted/paid orders and decklists for generator GUI."""
+    if not is_admin_authenticated(admin_session, x_admin_password, authorization):
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    orders = db.query(Order).order_by(Order.submitter_name.asc(), Order.created_at.asc()).all()
+    results = []
+    for o in orders:
+        for d in o.decks:
+            results.append({
+                "order_id": o.order_id,
+                "deck_id": d.id,
+                "person": o.submitter_name,
+                "deck_name": d.name,
+                "card_count": d.card_count,
+                "status": o.status,
+                "has_custom_back": bool(d.custom_back_data),
+                "custom_back_filename": d.custom_back_filename,
+                "ordinal": d.ordinal,
+                "reference_code": o.reference_code,
+                "created_at": o.created_at.isoformat() if o.created_at else None,
+            })
+    return {"decks": results}
+
+@router.post("/api/export-decks-zip")
+def api_export_decks_zip(
+    request_data: Optional[ExportDecksRequest] = Body(None),
+    admin_session: Optional[str] = Cookie(None),
+    x_admin_password: Optional[str] = Header(None, alias="X-Admin-Password"),
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Exports a ready-to-print ZIP containing selected (or all) decklists and companion cardbacks."""
+    if not is_admin_authenticated(admin_session, x_admin_password, authorization):
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    selected_ids = set(request_data.deck_ids) if (request_data and request_data.deck_ids) else None
+
+    orders = db.query(Order).order_by(Order.submitter_name.asc(), Order.created_at.asc()).all()
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        summary_csv = io.StringIO()
+        writer = csv.writer(summary_csv)
+        writer.writerow(["Person", "Deck Name", "Cards", "Language", "Total (€)", "Reference Code"])
+
+        taken_folders = set()
+        total_exported = 0
+
+        for o in orders:
+            person_slug = sanitize_slug(o.submitter_name)
+            for d in o.decks:
+                if selected_ids is not None and d.id not in selected_ids:
+                    continue
+
+                total_exported += 1
+                deck_slug = sanitize_slug(d.name)
+                folder_name = f"decks/{person_slug}{d.ordinal}_{deck_slug}"
+                if folder_name in taken_folders:
+                    folder_name = f"decks/{person_slug}_{o.id}_{d.ordinal}_{deck_slug}"
+                taken_folders.add(folder_name)
+
+                # Write decklist.txt
+                zf.writestr(f"{folder_name}/decklist.txt", d.converted_text)
+
+                # Write custom back image if present
+                if d.custom_back_data:
+                    ext = ".jpg"
+                    if d.custom_back_content_type and "png" in d.custom_back_content_type:
+                        ext = ".png"
+                    zf.writestr(f"{folder_name}/back{ext}", d.custom_back_data)
+
+                writer.writerow([
+                    o.submitter_name, d.name, d.card_count, d.preferred_language,
+                    f"{o.total_price_cents / 100.0:.2f}", o.reference_code
+                ])
+
+        zf.writestr("summary_costs.csv", summary_csv.getvalue().encode("utf-8"))
+
+    zip_buffer.seek(0)
+    filename = f"selected_print_run_{datetime.now().strftime('%Y%m%d_%H%M')}.zip"
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+

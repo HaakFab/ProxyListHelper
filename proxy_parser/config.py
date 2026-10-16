@@ -37,8 +37,18 @@ class AppConfig:
     output_dir: str = "."
     cache_dir: str = "scryfall_cache"
     upscaled_cache_dir: str = "upscaled_cache"
-    weights_dir: str = "weights"
+    # Divider Cards Configuration
+    two_divider_cards: bool = True     # 2 cards per list: 1=Identity (Person large), 2=Details (card count & specs)
+
+    # Smart Suborder Grouping for Sheet Cut & Stack
+    # Minimizes sheet waste and blade draw on large proxy orders
+    enable_suborders: bool = False
+    cards_per_sheet: int = 18          # Default 18 cards/sheet (3x6), supports 16 (4x4) or custom
+    target_suborder_cards: int = 1440  # Target proxy count per suborder batch (e.g. 1440 = 18*80 sheets)
     
+    # UI Mode
+    open_ui: bool = False
+
     # Google Drive Integration
     gdrive_dir: Optional[str] = None   # Path or "auto"
     offload_cache: bool = False        # Store/move image cache to Google Drive
@@ -170,11 +180,42 @@ def parse_arguments() -> AppConfig:
     parser.add_argument("--cardback", type=str, default=os.path.join("backs", "proxy1.jpg"), help="Default cardback image path")
     parser.add_argument("--output-pdf", type=str, default="all_cards_individual_pages.pdf", help="Output PDF name/path template")
     parser.add_argument("--output-csv", type=str, default="card_totals_summary.csv", help="Output summary CSV name/path")
+    # Divider & Suborder Options
     parser.add_argument(
-        "--info",
+        "--two-divider-cards",
+        action="store_true",
+        default=True,
+        help="Generate two divider cards per deck: 1=Identity (Person large), 2=Details (card count & specs)"
+    )
+    parser.add_argument(
+        "--single-divider-card",
+        action="store_false",
+        dest="two_divider_cards",
+        help="Use a single divider card instead of two"
+    )
+    parser.add_argument(
+        "--enable-suborders",
         action="store_true",
         default=False,
-        help="Display comprehensive parameter reference and usage guide from info.md and exit"
+        help="Partition print order into optimal suborders to prevent paper waste and blade draw on large runs"
+    )
+    parser.add_argument(
+        "--cards-per-sheet",
+        type=int,
+        default=18,
+        help="Number of cards per physical print sheet (default: 18 for 3x6, or 16 for 4x4)"
+    )
+    parser.add_argument(
+        "--target-suborder-cards",
+        type=int,
+        default=1440,
+        help="Target card count per suborder batch (e.g. 1440 cards = 80 sheets @ 18/sheet)"
+    )
+    parser.add_argument(
+        "--ui",
+        action="store_true",
+        default=False,
+        help="Launch the local graphical web interface to configure parameters, select decklists, and monitor progress"
     )
 
     args = parser.parse_args()
@@ -208,6 +249,11 @@ def parse_arguments() -> AppConfig:
         reset_bleed_cache=args.reset_bleed_cache,
         break_by=args.break_by,
         break_count=args.break_count,
+        two_divider_cards=args.two_divider_cards,
+        enable_suborders=args.enable_suborders,
+        cards_per_sheet=args.cards_per_sheet,
+        target_suborder_cards=args.target_suborder_cards,
+        open_ui=args.ui,
         gdrive_dir=args.gdrive_dir,
         offload_cache=args.offload_cache,
         input_dir=args.input_dir,
@@ -216,3 +262,4 @@ def parse_arguments() -> AppConfig:
         output_pdf=args.output_pdf,
         output_csv=args.output_csv
     )
+
