@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=20261016_void">
+  <link rel="stylesheet" href="/static/style.css?v=20261016_v3">
   <style>
     /* Inline fail-safe styling for Void Mode & Toggle Button */
     .darkmode-btn {
@@ -76,9 +76,141 @@
       color: #F4F4F4 !important;
       background: #000000 !important;
     }
+
+    /* IN DARK MODE: Switch font color on yellow buttons to BLACK */
+    .dark-void .btn-primary,
+    .dark-void .btn-primary:hover,
+    .dark-void .btn-primary:active,
+    .dark-void .btn-primary:focus,
+    .dark-void a.btn-primary,
+    .dark-void button.btn-primary,
+    .dark-void .tab-btn.active,
+    .dark-void .lang-btn.active,
+    .dark-void .badge-yellow,
+    .dark-void .btn-select-version:hover,
+    .dark-void [style*="background: var(--accent-acid)"]:not(.darkmode-btn),
+    .dark-void [style*="background:var(--accent-acid)"]:not(.darkmode-btn),
+    .dark-void [style*="background: #CCFF00"]:not(.darkmode-btn),
+    .dark-void [style*="background:#CCFF00"]:not(.darkmode-btn) {
+      color: #000000 !important;
+      font-weight: 800 !important;
+    }
+    .dark-void .btn-primary *,
+    .dark-void .tab-btn.active *,
+    .dark-void .lang-btn.active * {
+      color: #000000 !important;
+    }
     .dark-void .tab-btn.active {
-      background: #111111 !important;
-      color: #CCFF00 !important;
+      background: var(--accent-acid, #CCFF00) !important;
+    }
+
+    /* Mobile settings button & responsive dropdown */
+    .mobile-settings-toggle {
+      display: none;
+    }
+    .nav-right-cluster {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    @media (max-width: 768px) {
+      /* Decrease all font sizes by ~20% */
+      html {
+        font-size: 13px !important;
+      }
+
+      /* Decrease headings even more */
+      h1, .hero h1 {
+        font-size: 1.35rem !important;
+        line-height: 1.15 !important;
+        letter-spacing: -0.02em !important;
+      }
+      h2, .modal-title, .section-title {
+        font-size: 1.05rem !important;
+        line-height: 1.25 !important;
+      }
+      h3, .deck-title {
+        font-size: 0.9rem !important;
+      }
+      .logo-text {
+        font-size: 1.05rem !important;
+      }
+
+      /* Gear Settings Button */
+      .mobile-settings-toggle {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        background: var(--bg-surface, #1C1C20);
+        color: var(--text-light, #F4F0EA);
+        border: 2px solid var(--border-dark, #2E2E34);
+        box-shadow: 2px 2px 0px #000000;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        transition: all 0.15s ease;
+      }
+      .mobile-settings-toggle:hover,
+      .mobile-settings-toggle[aria-expanded="true"] {
+        border-color: var(--accent-acid, #CCFF00);
+        color: var(--accent-acid, #CCFF00);
+        box-shadow: 3px 3px 0px var(--accent-acid, #CCFF00);
+      }
+      .dark-void .mobile-settings-toggle {
+        background: #000000 !important;
+        color: #FFFFFF !important;
+        border-color: #222226 !important;
+      }
+      .dark-void .mobile-settings-toggle[aria-expanded="true"] {
+        border-color: var(--accent-acid, #CCFF00) !important;
+        color: var(--accent-acid, #CCFF00) !important;
+        box-shadow: 0 0 10px rgba(204, 255, 0, 0.4), 2px 2px 0px #000000 !important;
+      }
+
+      /* Hide settings behind dropdown menu on mobile */
+      .nav-actions {
+        display: none !important;
+        position: absolute;
+        top: calc(100% + 10px);
+        right: 0;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px;
+        background: var(--bg-paper, #F4F0EA);
+        border: 2px solid var(--border-ink, #111111);
+        box-shadow: 6px 6px 0px #000000;
+        padding: 14px;
+        min-width: 210px;
+        z-index: 1000;
+      }
+      .nav-actions.is-open {
+        display: flex !important;
+        animation: menuSnapIn 0.15s ease-out;
+      }
+      @keyframes menuSnapIn {
+        from { opacity: 0; transform: translateY(-6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .dark-void .nav-actions {
+        background: #040405 !important;
+        border-color: #222226 !important;
+        box-shadow: 8px 8px 0px #000000, 0 0 25px rgba(0, 0, 0, 0.95) !important;
+      }
+
+      .nav-actions .darkmode-btn,
+      .nav-actions .lang-switch,
+      .nav-actions .admin-nav-link {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+      }
+      .nav-actions .lang-btn {
+        flex: 1;
+        text-align: center;
+      }
     }
   </style>
   <script>
@@ -114,8 +246,45 @@
       }
     }
 
+    function toggleMobileSettings(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      const menu = document.getElementById('nav-actions-menu');
+      const btn = document.getElementById('mobile-settings-toggle');
+      if (!menu) return;
+      const isOpen = menu.classList.toggle('is-open');
+      if (btn) {
+        btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      }
+    }
+
+    document.addEventListener('click', function(e) {
+      const menu = document.getElementById('nav-actions-menu');
+      const btn = document.getElementById('mobile-settings-toggle');
+      if (menu && menu.classList.contains('is-open')) {
+        if (!menu.contains(e.target) && (!btn || !btn.contains(e.target))) {
+          menu.classList.remove('is-open');
+          if (btn) btn.setAttribute('aria-expanded', 'false');
+        }
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const menu = document.getElementById('nav-actions-menu');
+        const btn = document.getElementById('mobile-settings-toggle');
+        if (menu && menu.classList.contains('is-open')) {
+          menu.classList.remove('is-open');
+          if (btn) btn.setAttribute('aria-expanded', 'false');
+        }
+      }
+    });
+
     window.toggleDarkMode = toggleDarkMode;
     window.updateDarkModeButtonState = updateDarkModeButtonState;
+    window.toggleMobileSettings = toggleMobileSettings;
     document.addEventListener('DOMContentLoaded', updateDarkModeButtonState);
   </script>
   {% block extra_head %}{% endblock %}
@@ -133,17 +302,27 @@
         <span class="logo-tag">[V3.2]</span>
       </a>
 
-      <div class="nav-actions">
-        <!-- Ultra Meme-Tier Void Dark Mode Button -->
-        <button type="button" id="darkmode-toggle" class="darkmode-btn" onclick="toggleDarkMode()" title="{{ t('darkmode_tooltip') }}">
-          <span id="darkmode-state-tag">{{ t('darkmode_toggle_void') }}</span>
+      <div class="nav-right-cluster">
+        <!-- Mobile Settings Gear Toggle Button -->
+        <button type="button" class="mobile-settings-toggle" id="mobile-settings-toggle" aria-label="Settings" aria-expanded="false" onclick="toggleMobileSettings(event)" title="Settings">
+          <svg class="gear-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
         </button>
 
-        <div class="lang-switch">
-          <a href="?lang=en" class="lang-btn {% if lang == 'en' %}active{% endif %}">[EN]</a>
-          <a href="?lang=de" class="lang-btn {% if lang == 'de' %}active{% endif %}">[DE]</a>
+        <div class="nav-actions" id="nav-actions-menu">
+          <!-- Ultra Meme-Tier Void Dark Mode Button -->
+          <button type="button" id="darkmode-toggle" class="darkmode-btn" onclick="toggleDarkMode()" title="{{ t('darkmode_tooltip') }}">
+            <span id="darkmode-state-tag">{{ t('darkmode_toggle_void') }}</span>
+          </button>
+
+          <div class="lang-switch">
+            <a href="?lang=en" class="lang-btn {% if lang == 'en' %}active{% endif %}">[EN]</a>
+            <a href="?lang=de" class="lang-btn {% if lang == 'de' %}active{% endif %}">[DE]</a>
+          </div>
+          <a href="/admin?lang={{ lang }}" class="admin-nav-link">[ADMIN]</a>
         </div>
-        <a href="/admin?lang={{ lang }}" class="admin-nav-link">[ADMIN]</a>
       </div>
     </div>
   </header>
@@ -188,7 +367,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=20261016_void"></script>
+  <script src="/static/app.js?v=20261016_v3"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

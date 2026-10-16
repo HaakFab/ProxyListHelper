@@ -165,6 +165,16 @@ body.cutting-mat-workspace, body {
   font-weight: 600;
 }
 
+.nav-right-cluster {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.mobile-settings-toggle {
+  display: none;
+}
+
 .nav-actions {
   display: flex;
   align-items: center;
@@ -1087,23 +1097,142 @@ body.cutting-mat-workspace, body {
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
-  .hero h1 {
-    font-size: 1.85rem;
+  /* Decrease all font sizes across the app by ~20% */
+  html {
+    font-size: 13px !important;
   }
-  .glass-card {
-    padding: 16px;
+
+  /* Decrease heading font sizes even more */
+  h1, .hero h1 {
+    font-size: 1.35rem !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.02em !important;
   }
+
+  .hero p {
+    font-size: 0.85rem !important;
+    line-height: 1.4 !important;
+  }
+
+  h2, .modal-title, .section-title {
+    font-size: 1.05rem !important;
+    line-height: 1.25 !important;
+  }
+
+  h3, .deck-title {
+    font-size: 0.9rem !important;
+  }
+
+  .logo-text {
+    font-size: 1.05rem !important;
+  }
+
+  .logo-badge {
+    font-size: 0.62rem !important;
+    padding: 2px 6px !important;
+  }
+
+  .logo-tag {
+    font-size: 0.65rem !important;
+  }
+
+  .container {
+    padding: 0 12px;
+  }
+
+  .glass-card, .deck-sheet-card {
+    padding: 14px;
+  }
+
   .options-grid {
     grid-template-columns: 1fr;
   }
+
   .nav-wrap {
-    height: 56px;
+    height: 54px;
+    padding: 0 12px;
   }
-  .logo-text {
-    font-size: 1.15rem;
-  }
+
   .version-cards-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+  }
+
+  /* Mobile Settings Gear Button */
+  .mobile-settings-toggle {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: var(--bg-surface);
+    color: var(--text-light);
+    border: 2px solid var(--border-dark);
+    box-shadow: 2px 2px 0px #000000;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-settings-toggle:hover,
+  .mobile-settings-toggle[aria-expanded="true"] {
+    border-color: var(--accent-acid);
+    color: var(--accent-acid);
+    box-shadow: 3px 3px 0px var(--accent-acid);
+  }
+
+  .dark-void .mobile-settings-toggle {
+    background: #000000 !important;
+    color: #FFFFFF !important;
+    border-color: #222226 !important;
+  }
+
+  .dark-void .mobile-settings-toggle[aria-expanded="true"] {
+    border-color: var(--accent-acid) !important;
+    color: var(--accent-acid) !important;
+    box-shadow: 0 0 10px rgba(204, 255, 0, 0.4), 2px 2px 0px #000000 !important;
+  }
+
+  /* Hide header settings behind dropdown on mobile */
+  .nav-actions {
+    display: none !important;
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px;
+    background: var(--bg-paper);
+    border: 2px solid var(--border-ink);
+    box-shadow: 6px 6px 0px #000000;
+    padding: 14px;
+    min-width: 210px;
+    z-index: 1000;
+  }
+
+  .nav-actions.is-open {
+    display: flex !important;
+    animation: menuSnapIn 0.15s ease-out;
+  }
+
+  .dark-void .nav-actions {
+    background: #040405 !important;
+    border-color: #222226 !important;
+    box-shadow: 8px 8px 0px #000000, 0 0 25px rgba(0, 0, 0, 0.95) !important;
+  }
+
+  .nav-actions .darkmode-btn,
+  .nav-actions .lang-switch,
+  .nav-actions .admin-nav-link {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .nav-actions .lang-btn {
+    flex: 1;
+    text-align: center;
   }
 }
 
@@ -1758,4 +1887,37 @@ body.cutting-mat-workspace, body {
 .dark-void .site-footer p {
   color: #444444 !important;
 }
+
+/* ==========================================================================
+   Dark Mode Font Color on Yellow Buttons -> BLACK (#000000)
+   Applies to both mobile and desktop (PC)
+   ========================================================================== */
+.dark-void .btn-primary,
+.dark-void .btn-primary:hover,
+.dark-void .btn-primary:active,
+.dark-void .btn-primary:focus,
+.dark-void a.btn-primary,
+.dark-void button.btn-primary,
+.dark-void .tab-btn.active,
+.dark-void .lang-btn.active,
+.dark-void .badge-yellow,
+.dark-void .btn-select-version:hover,
+.dark-void .btn-copy-code,
+.dark-void .voucher-container a[style*="accent-acid"],
+.dark-void .voucher-container a[style*="#CCFF00"],
+.dark-void [style*="background: var(--accent-acid)"]:not(.darkmode-btn),
+.dark-void [style*="background:var(--accent-acid)"]:not(.darkmode-btn),
+.dark-void [style*="background: #CCFF00"]:not(.darkmode-btn),
+.dark-void [style*="background:#CCFF00"]:not(.darkmode-btn),
+.dark-void [style*="background: #d8ff26"]:not(.darkmode-btn) {
+  color: #000000 !important;
+  font-weight: 800 !important;
+}
+
+.dark-void .btn-primary *,
+.dark-void .tab-btn.active *,
+.dark-void .lang-btn.active * {
+  color: #000000 !important;
+}
+
 

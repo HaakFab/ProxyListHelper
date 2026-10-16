@@ -867,9 +867,44 @@ function updateDarkModeButton() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', updateDarkModeButton);
-window.toggleDarkMode = toggleDarkMode;
-window.updateDarkModeButton = updateDarkModeButton;
+function toggleMobileSettings(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const menu = document.getElementById('nav-actions-menu');
+  const btn = document.getElementById('mobile-settings-toggle');
+  if (!menu) return;
+  const isOpen = menu.classList.toggle('is-open');
+  if (btn) {
+    btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+}
+
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('nav-actions-menu');
+  const btn = document.getElementById('mobile-settings-toggle');
+  if (menu && menu.classList.contains('is-open')) {
+    if (!menu.contains(e.target) && (!btn || !btn.contains(e.target))) {
+      menu.classList.remove('is-open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+  }
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const menu = document.getElementById('nav-actions-menu');
+    const btn = document.getElementById('mobile-settings-toggle');
+    if (menu && menu.classList.contains('is-open')) {
+      menu.classList.remove('is-open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+  }
+});
+
+window.toggleMobileSettings = toggleMobileSettings;
+
 
 
 
