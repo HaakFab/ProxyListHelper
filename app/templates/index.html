@@ -2,14 +2,19 @@
 
 {% block content %}
 <div class="hero">
+  <div style="display: inline-block; margin-bottom: 10px;">
+    <span class="badge" style="background: var(--accent-acid); color: var(--text-dark); border: 2px solid var(--text-dark); font-weight: 800; transform: rotate(-1deg); display: inline-block;">
+      [PRE-PRESS UTILITY // 1200 DPI BLEED SPEC]
+    </span>
+  </div>
   <h1>{{ t("title") }}</h1>
   <p>{{ t("subtitle") }}</p>
 </div>
 
 {% if error == "empty_decks" %}
 <div class="alert alert-danger" style="margin-bottom: 24px;">
-  <span style="font-size: 1.25rem;">⚠️</span>
-  <div>{{ t("empty_decks_error") }}</div>
+  <span style="font-size: 1.1rem; font-weight: 900;">[!]</span>
+  <div><strong>EMPTY SUBMISSION:</strong> {{ t("empty_decks_error") }}</div>
 </div>
 {% endif %}
 
@@ -20,7 +25,9 @@
   <!-- Submitter Information -->
   <div class="glass-card">
     <div class="form-group" style="margin-bottom: 0;">
-      <label class="form-label" for="submitter_name">{{ t("your_name") }} *</label>
+      <label class="form-label" for="submitter_name">
+        <span style="color: var(--accent-riso); margin-right: 4px;">&gt;</span>{{ t("your_name") }} *
+      </label>
       <input type="text" class="form-input" id="submitter_name" name="submitter_name" 
              placeholder="{{ t("name_placeholder") }}" required autofocus>
     </div>
@@ -31,7 +38,8 @@
     <!-- Deck #1 -->
     <div class="glass-card" id="deck-card-0">
       <div class="card-header-bar">
-        <span class="deck-tag">{{ t("deck_number", 1) }}</span>
+        <span class="deck-tag">[001] {{ t("deck_number", 1) }}</span>
+        <span style="font-family: var(--font-mono); font-size: 0.72rem; color: #555; text-transform: uppercase;">// RAW DECKLIST ENTRY</span>
       </div>
 
       <div class="form-group">
@@ -43,8 +51,8 @@
       <input type="hidden" name="source_type_0" value="url">
 
       <div class="tabs-nav">
-        <button type="button" class="tab-btn active" data-tab="url" onclick="switchTab(0, 'url')">{{ t("moxfield_url_tab") }}</button>
-        <button type="button" class="tab-btn" data-tab="text" onclick="switchTab(0, 'text')">{{ t("paste_text_tab") }}</button>
+        <button type="button" class="tab-btn active" data-tab="url" onclick="switchTab(0, 'url')">[{{ t("moxfield_url_tab") }}]</button>
+        <button type="button" class="tab-btn" data-tab="text" onclick="switchTab(0, 'text')">[{{ t("paste_text_tab") }}]</button>
       </div>
 
       <!-- URL Tab -->
@@ -116,8 +124,8 @@
         <label class="form-label">{{ t("custom_back") }}</label>
         <label class="upload-dropzone" for="custom_back_0">
           <img id="preview_img_0" class="upload-preview" alt="Card back preview">
-          <div id="upload_prompt_0" style="font-size: 0.84rem; color: var(--text-muted);">
-            📷 {{ t("custom_back_hint") }}
+          <div id="upload_prompt_0" style="font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700; color: var(--text-dark);">
+            [+ UPLOAD CUSTOM CARD BACK] &bull; JPG / PNG / WEBP
           </div>
           <input type="file" id="custom_back_0" name="custom_back_0" accept="image/png, image/jpeg, image/webp" 
                  style="display: none;" onchange="handleImageUpload(this, 0)">
@@ -129,48 +137,44 @@
   <!-- Dynamic Actions -->
   <div style="margin-bottom: 24px;">
     <button type="button" class="btn btn-secondary btn-block" onclick="addDeckForm()">
-      {{ t("add_another_deck") }}
+      [+ {{ t("add_another_deck") }}]
     </button>
   </div>
 
-  <!-- Pricing Info Notice -->
+  <!-- Pricing Info Notice (Work Ticket) -->
   <div class="quote-box">
-    <div style="font-size: 0.82rem; font-weight: 700; color: #a5b4fc; text-transform: uppercase; margin-bottom: 8px;">
-      Printing Rates
-    </div>
     <div class="quote-row">
       <span>Price per card:</span>
-      <span style="font-weight: 600;">{{ format_cents(rates.price_per_card_cents) }}</span>
+      <span style="font-weight: 700;">{{ format_cents(rates.price_per_card_cents) }}</span>
     </div>
     <div class="quote-row">
       <span>Price per list (divider card):</span>
-      <span style="font-weight: 600;">{{ format_cents(rates.price_per_list_cents) }}</span>
+      <span style="font-weight: 700;">{{ format_cents(rates.price_per_list_cents) }}</span>
     </div>
     {% if rates.order_fee_cents > 0 %}
     <div class="quote-row">
-      <span>Order fee:</span>
-      <span style="font-weight: 600;">{{ format_cents(rates.order_fee_cents) }}</span>
+      <span>Order pre-press setup fee:</span>
+      <span style="font-weight: 700;">{{ format_cents(rates.order_fee_cents) }}</span>
     </div>
     {% endif %}
   </div>
 
   <div class="action-row">
-    <button type="submit" id="submit-btn" class="btn btn-primary btn-block" style="font-size: 1.05rem; padding: 16px;">
-      ⚡ {{ t("analyze_and_convert") }}
+    <button type="submit" id="submit-btn" class="btn btn-primary btn-block" style="font-size: 1.1rem; padding: 18px;">
+      [⚡ {{ t("analyze_and_convert") }}]
     </button>
   </div>
 </form>
 
-<!-- Processing Progress Modal Popup -->
+<!-- Processing Progress Modal Popup (Pre-flight Terminal) -->
 <div id="processing-modal" class="modal-backdrop" style="display: none;" aria-hidden="true">
   <div class="modal-card">
     <div class="processing-glow-ring">
-      <div class="spinner-pulse"></div>
-      <div class="processing-icon">⚡</div>
+      <div class="processing-icon">&gt;_</div>
     </div>
     
     <h2 class="modal-title">{{ t("processing_title") }}</h2>
-    <p class="modal-subtext">{{ t("processing_subtitle") }}</p>
+    <p class="modal-subtext">[RIP PROCESSOR RUNNING &bull; SCRYFALL API SYNC]</p>
 
     <!-- Progress Bar -->
     <div class="progress-container">
@@ -179,7 +183,7 @@
       </div>
       <div class="progress-stats">
         <span id="progress-status-text">{{ t("step_moxfield") }}</span>
-        <span id="progress-percent" style="font-weight: 700; color: #a5b4fc;">0%</span>
+        <span id="progress-percent" style="font-weight: 800; color: var(--accent-acid);">0%</span>
       </div>
     </div>
 
@@ -187,19 +191,19 @@
     <div class="processing-steps">
       <div class="step-item active" id="step-1">
         <span class="step-dot"></span>
-        <span class="step-label">{{ t("step_moxfield") }}</span>
+        <span class="step-label">[1] {{ t("step_moxfield") }}</span>
       </div>
       <div class="step-item" id="step-2">
         <span class="step-dot"></span>
-        <span class="step-label">{{ t("step_scryfall") }}</span>
+        <span class="step-label">[2] {{ t("step_scryfall") }}</span>
       </div>
       <div class="step-item" id="step-3">
         <span class="step-dot"></span>
-        <span class="step-label">{{ t("step_foils") }}</span>
+        <span class="step-label">[3] {{ t("step_foils") }}</span>
       </div>
       <div class="step-item" id="step-4">
         <span class="step-dot"></span>
-        <span class="step-label">{{ t("step_finalize") }}</span>
+        <span class="step-label">[4] {{ t("step_finalize") }}</span>
       </div>
     </div>
   </div>

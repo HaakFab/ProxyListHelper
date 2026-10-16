@@ -2,6 +2,11 @@
 
 {% block content %}
 <div class="hero">
+  <div style="display: inline-block; margin-bottom: 10px;">
+    <span class="badge" style="background: var(--accent-acid); color: var(--text-dark); border: 2px solid var(--text-dark); font-weight: 800; transform: rotate(-1deg); display: inline-block;">
+      [PRE-PRESS PROOFING // RESOLUTION STAGE]
+    </span>
+  </div>
   <h1>{{ t("review_title") }}</h1>
   <p>{{ t("review_subtitle") }}</p>
 </div>
@@ -13,58 +18,61 @@
   <div class="glass-card">
     <div class="card-header-bar">
       <div>
-        <span class="deck-tag">Deck #{{ p.deck.ordinal }}</span>
-        <strong style="margin-left: 10px; font-size: 1.1rem;">{{ p.deck.name }}</strong>
-        <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 8px;">
-          ({{ p.deck.card_count }} cards &bull; Lang: {{ p.deck.preferred_language.upper() }})
+        <span class="deck-tag">[{{ "%03d"|format(p.deck.ordinal) }}] Deck #{{ p.deck.ordinal }}</span>
+        <strong style="margin-left: 10px; font-family: var(--font-display); font-size: 1.2rem; text-transform: uppercase;">{{ p.deck.name }}</strong>
+        <span style="font-family: var(--font-mono); font-size: 0.78rem; color: #555; margin-left: 8px;">
+          // {{ p.deck.card_count }} CARDS &bull; LANG: {{ p.deck.preferred_language.upper() }}
         </span>
       </div>
 
       {% if p.red_items %}
-        <span class="badge badge-red">🔴 {{ p.red_items|length }} {{ t("issues_cards") }}</span>
+        <span class="badge badge-red">[!] {{ p.red_items|length }} {{ t("issues_cards") }}</span>
       {% elif p.yellow_items %}
-        <span class="badge badge-yellow">🟡 {{ p.yellow_items|length }} {{ t("autofixed_cards") }}</span>
+        <span class="badge badge-yellow">[*] {{ p.yellow_items|length }} {{ t("autofixed_cards") }}</span>
       {% else %}
-        <span class="badge badge-green">🟢 {{ t("clean_cards") }}</span>
+        <span class="badge badge-green">[✓] {{ t("clean_cards") }}</span>
       {% endif %}
     </div>
 
     <!-- 🔴 RED ISSUES REQUIRING DECISION -->
     {% if p.red_items %}
-      <div style="margin-bottom: 20px;">
-        <h3 style="font-size: 0.95rem; color: #f87171; margin-bottom: 12px; font-weight: 700;">
-          ⚠️ Action Required for the following cards:
-        </h3>
+      <div style="margin-bottom: 24px;">
+        <div style="font-family: var(--font-mono); font-size: 0.82rem; font-weight: 800; color: var(--accent-riso); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em;">
+          [!] ACTION REQUIRED &bull; RESOLVE MISSING / DIGITAL PRINTINGS:
+        </div>
 
         {% for item in p.red_items %}
         {% set item_idx = loop.index0 %}
-        <div class="issue-card">
+        <div class="issue-card has-card-hover"
+             data-v1-img="{{ item.original_image_url or '' }}"
+             data-v1-label="{{ item.original_version_label or item.name }}"
+             data-reason="{{ item.message }}">
           <div class="issue-card-title">
-            <strong>{{ item.qty }}x {{ item.name }}</strong>
-            <span style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);">
-              {{ item.set.upper() if item.set else 'No Set' }} #{{ item.cn if item.cn else '?' }}
+            <strong style="font-family: var(--font-mono); font-size: 0.95rem;">{{ item.qty }}x {{ item.name }}</strong>
+            <span style="font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; background: #111; color: #FFF; padding: 2px 6px;">
+              {{ item.set.upper() if item.set else 'NO SET' }} #{{ item.cn if item.cn else '?' }}
             </span>
           </div>
-          <div style="font-size: 0.84rem; color: #fca5a5; margin-bottom: 8px;">
-            {{ item.message }}
+          <div style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-riso); margin-bottom: 10px; font-weight: 600;">
+            // {{ item.message }}
           </div>
 
           <div class="action-selector">
             {% if item.suggested_set %}
             <label class="action-radio-label">
               <input type="radio" name="action_{{ p.deck.id }}_{{ item_idx }}" value="substitute" checked>
-              <span>{{ t("action_substitute") }} ({{ item.suggested_set.upper() }} #{{ item.suggested_cn }})</span>
+              <span>[{{ t("action_substitute") }} &rarr; {{ item.suggested_set.upper() }} #{{ item.suggested_cn }}]</span>
             </label>
             {% endif %}
 
             <label class="action-radio-label">
               <input type="radio" name="action_{{ p.deck.id }}_{{ item_idx }}" value="drop" {% if not item.suggested_set %}checked{% endif %}>
-              <span>{{ t("action_drop") }}</span>
+              <span>[{{ t("action_drop") }}]</span>
             </label>
 
             <label class="action-radio-label">
               <input type="radio" name="action_{{ p.deck.id }}_{{ item_idx }}" value="keep">
-              <span>{{ t("action_keep") }}</span>
+              <span>[{{ t("action_keep") }}]</span>
             </label>
           </div>
         </div>
@@ -75,9 +83,9 @@
     <!-- 🟡 AUTO-FIXED CARDS WITH MOUSEOVER COMPARISON -->
     {% if p.yellow_items %}
       <div style="margin-bottom: 20px;">
-        <details open style="font-size: 0.86rem; color: var(--text-muted);">
-          <summary style="cursor: pointer; font-weight: 700; color: #fbbf24; margin-bottom: 8px;">
-            📋 Card Replacements Log ({{ p.yellow_items|length }} cards converted &bull; hover over any card to preview)
+        <details open style="font-size: 0.86rem;">
+          <summary style="cursor: pointer; font-family: var(--font-mono); font-weight: 800; color: var(--text-dark); text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.04em;">
+            [+] CARD REPLACEMENTS LOG ({{ p.yellow_items|length }} CARDS CONVERTED &bull; HOVER TO PREVIEW)
           </summary>
           <div style="margin-top: 8px;">
             {% for item in p.yellow_items %}
@@ -88,12 +96,12 @@
                    data-v2-label="{{ item.fixed_version_label or item.fixed_line }}"
                    data-reason="{{ item.message }}">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <span class="badge badge-yellow" style="font-size: 0.7rem;">{{ item.category.replace('_', ' ') }}</span>
-                  <strong style="color: #fff;">{{ item.qty }}x {{ item.name }}</strong>
+                  <span class="badge badge-yellow" style="font-size: 0.68rem;">{{ item.category.replace('_', ' ') }}</span>
+                  <strong style="font-family: var(--font-mono);">{{ item.qty }}x {{ item.name }}</strong>
                 </div>
                 <div class="compare-chips">
                   <span class="version-chip version-chip-v1">{{ item.original_version_label or 'V1: Requested' }}</span>
-                  <span style="color: var(--text-muted);">&rarr;</span>
+                  <span style="font-weight: 900; color: #111;">&rarr;</span>
                   <span class="version-chip version-chip-v2">{{ item.fixed_version_label or 'V2: Replaced' }}</span>
                 </div>
               </div>
@@ -102,26 +110,26 @@
         </details>
       </div>
     {% else %}
-      <div style="font-size: 0.82rem; color: #a7f3d0; background: rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.2); padding: 8px 12px; border-radius: var(--radius-sm); margin-bottom: 14px;">
-        ✓ No card replacements needed &bull; All requested printings are clean paper versions.
+      <div style="font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; color: #047857; background: #ECFDF5; border: 2px solid #10B981; padding: 8px 12px; margin-bottom: 16px;">
+        [✓] NO CARD REPLACEMENTS NEEDED &bull; ALL REQUESTED PRINTINGS ARE CLEAN PAPER EDITIONS.
       </div>
     {% endif %}
 
     <!-- 🟢 ALL PARSED CARDS IN THIS DECK -->
     {% if p.green_items %}
       <div style="margin-top: 14px;">
-        <details style="font-size: 0.86rem; color: var(--text-muted);">
-          <summary style="cursor: pointer; font-weight: 600; color: #34d399; margin-bottom: 8px;">
-            Parsed Cards Overview ({{ p.green_items|length }} cards verified &bull; hover to preview scan)
+        <details style="font-size: 0.86rem;">
+          <summary style="cursor: pointer; font-family: var(--font-mono); font-weight: 700; color: var(--text-dark); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.04em;">
+            [+] PARSED CARDS OVERVIEW ({{ p.green_items|length }} VERIFIED &bull; HOVER FOR SCAN)
           </summary>
-          <div style="max-height: 240px; overflow-y: auto; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 8px 12px; margin-top: 6px;">
+          <div style="max-height: 240px; overflow-y: auto; background: #FFFFFF; border: 2px solid var(--border-ink); padding: 8px 12px; margin-top: 6px;">
             {% for item in p.green_items %}
               <div class="parsed-card-row has-card-hover"
                    data-v1-img="{{ item.original_image_url or '' }}"
                    data-v1-label="{{ item.name }} ({{ item.set.upper() if item.set else '' }} #{{ item.cn or '' }})"
                    data-reason="{{ item.name }} &bull; {{ item.set.upper() if item.set else '' }} #{{ item.cn or '' }} &bull; Verified on Scryfall">
                 <span><strong>{{ item.qty }}x</strong> {{ item.name }}</span>
-                <span style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted);">
+                <span style="font-family: var(--font-mono); font-size: 0.76rem; color: #666;">
                   {{ item.set.upper() if item.set else '' }} #{{ item.cn or '' }}
                 </span>
               </div>
@@ -133,33 +141,30 @@
 
     <!-- Custom back indicator -->
     {% if p.deck.custom_back_filename %}
-      <div style="display: flex; align-items: center; gap: 12px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-subtle);">
-        <img src="/api/deck/{{ p.deck.id }}/back" alt="Card back" style="width: 44px; height: 60px; object-fit: cover; border-radius: 4px;">
-        <span style="font-size: 0.84rem; color: var(--text-muted);">
-          Custom Back: <strong>{{ p.deck.custom_back_filename }}</strong>
+      <div style="display: flex; align-items: center; gap: 12px; margin-top: 16px; padding-top: 12px; border-top: 2px dashed rgba(17, 17, 17, 0.3);">
+        <img src="/api/deck/{{ p.deck.id }}/back" alt="Card back" style="width: 44px; height: 60px; object-fit: cover; border: 2px solid var(--border-ink);">
+        <span style="font-family: var(--font-mono); font-size: 0.82rem; font-weight: 700; color: var(--text-dark);">
+          [CUSTOM CARD BACK]: <u>{{ p.deck.custom_back_filename }}</u>
         </span>
       </div>
     {% endif %}
   </div>
   {% endfor %}
 
-  <!-- Order Cost Quote -->
+  <!-- Order Cost Quote (Thermal Work Ticket) -->
   <div class="quote-box">
-    <div style="font-size: 0.82rem; font-weight: 700; color: #a5b4fc; text-transform: uppercase; margin-bottom: 8px;">
-      {{ t("cost_breakdown") }}
-    </div>
     <div class="quote-row">
       <span>{{ t("price_per_card", order.total_cards, rates.price_per_card_cents / 100.0) }}</span>
-      <span>{{ format_cents(order.total_cards * rates.price_per_card_cents) }}</span>
+      <span style="font-weight: 700;">{{ format_cents(order.total_cards * rates.price_per_card_cents) }}</span>
     </div>
     <div class="quote-row">
       <span>{{ t("price_per_list", order.total_lists, rates.price_per_list_cents / 100.0) }}</span>
-      <span>{{ format_cents(order.total_lists * rates.price_per_list_cents) }}</span>
+      <span style="font-weight: 700;">{{ format_cents(order.total_lists * rates.price_per_list_cents) }}</span>
     </div>
     {% if rates.order_fee_cents > 0 %}
     <div class="quote-row">
       <span>{{ t("order_fee") }}</span>
-      <span>{{ format_cents(rates.order_fee_cents) }}</span>
+      <span style="font-weight: 700;">{{ format_cents(rates.order_fee_cents) }}</span>
     </div>
     {% endif %}
     <div class="quote-row total-row">
@@ -168,12 +173,12 @@
     </div>
   </div>
 
-  <div class="action-row" style="display: flex; gap: 12px; flex-wrap: wrap;">
+  <div class="action-row" style="display: flex; gap: 14px; flex-wrap: wrap;">
     <a href="/?lang={{ lang }}" class="btn btn-secondary" style="flex: 1; text-align: center; display: flex; align-items: center; justify-content: center;">
-      &larr; Edit Decks
+      [&larr; EDIT DECKS]
     </a>
-    <button type="submit" class="btn btn-primary" style="flex: 2; font-size: 1.05rem; padding: 16px;">
-      ✓ {{ t("submit_order") }}
+    <button type="submit" class="btn btn-primary" style="flex: 2; font-size: 1.1rem; padding: 18px;">
+      [✓ {{ t("submit_order") }}]
     </button>
   </div>
 </form>

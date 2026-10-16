@@ -1,72 +1,77 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 14px;">
   <div>
-    <h1 style="font-size: 1.8rem; font-weight: 800;">{{ t("admin_dashboard") }}</h1>
-    <p style="color: var(--text-muted); font-size: 0.9rem;">Manage print runs, pricing rules, and download production files.</p>
+    <div style="display: inline-block; margin-bottom: 6px;">
+      <span class="badge" style="background: var(--accent-acid); color: var(--text-dark); border: 2px solid var(--text-dark); font-weight: 800; transform: rotate(-1deg);">
+        [PRODUCTION CONSOLE // BATCH DISPATCH]
+      </span>
+    </div>
+    <h1 style="font-family: var(--font-display); font-size: 2.2rem; font-weight: 800; text-transform: uppercase; line-height: 0.95;">{{ t("admin_dashboard") }}</h1>
+    <p style="font-family: var(--font-mono); color: var(--text-muted); font-size: 0.84rem; margin-top: 6px;">// MANAGE PRINT RUNS, PRICING RULES &amp; READY-TO-UPSCALE PACKAGES</p>
   </div>
   <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
     <form action="/admin/cycle/new" method="POST" onsubmit="return confirm('⚠️ Are you sure you want to start a NEW ORDER CYCLE?\n\nThis will permanently delete ALL submitted orders and decks to begin a fresh batch print run. This cannot be undone.');">
       <input type="hidden" name="lang" value="{{ lang }}">
-      <button type="submit" class="btn btn-danger" style="font-size: 0.82rem; padding: 8px 16px;">
-        Start New Order Cycle
+      <button type="submit" class="btn btn-danger" style="font-size: 0.8rem; padding: 10px 14px;">
+        [START NEW ORDER CYCLE]
       </button>
     </form>
     <form action="/admin/logout" method="POST">
-      <button type="submit" class="btn btn-secondary" style="font-size: 0.82rem; padding: 8px 16px;">
-        Log out
+      <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem; padding: 10px 14px;">
+        [LOG OUT]
       </button>
     </form>
   </div>
 </div>
 
 {% if request.query_params.get("cycle_reset") == "1" %}
-<div class="alert" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #6ee7b7; margin-bottom: 20px;">
-  <span>✓</span>
-  <div><strong>New Order Cycle Started:</strong> All previous submissions have been cleared. Ready for new submissions.</div>
+<div class="alert" style="background: #ECFDF5; border: 2px solid #10B981; color: var(--text-dark); margin-bottom: 20px;">
+  <span style="font-weight: 900;">[✓]</span>
+  <div><strong>NEW ORDER CYCLE STARTED:</strong> All previous submissions have been cleared. Ready for new submissions.</div>
 </div>
 {% endif %}
 
-<!-- Metrics Overview -->
+<!-- Metrics Overview (Pre-Press Gauges) -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px;">
-  <div class="glass-card" style="margin-bottom: 0; padding: 18px;">
-    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Participants</div>
-    <div style="font-size: 1.6rem; font-weight: 800; color: #fff;">{{ total_orders }}</div>
+  <div class="glass-card" style="margin-bottom: 0; padding: 16px;">
+    <div style="font-family: var(--font-mono); font-size: 0.72rem; color: #555; text-transform: uppercase; font-weight: 700;">PARTICIPANTS</div>
+    <div style="font-family: var(--font-mono); font-size: 1.8rem; font-weight: 800; color: var(--text-dark);">{{ total_orders }}</div>
   </div>
-  <div class="glass-card" style="margin-bottom: 0; padding: 18px;">
-    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Total Decks</div>
-    <div style="font-size: 1.6rem; font-weight: 800; color: #fff;">{{ total_decks }}</div>
+  <div class="glass-card" style="margin-bottom: 0; padding: 16px;">
+    <div style="font-family: var(--font-mono); font-size: 0.72rem; color: #555; text-transform: uppercase; font-weight: 700;">TOTAL DECKS</div>
+    <div style="font-family: var(--font-mono); font-size: 1.8rem; font-weight: 800; color: var(--text-dark);">{{ total_decks }}</div>
   </div>
-  <div class="glass-card" style="margin-bottom: 0; padding: 18px;">
-    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Total Cards</div>
-    <div style="font-size: 1.6rem; font-weight: 800; color: #34d399;">{{ total_cards }}</div>
+  <div class="glass-card" style="margin-bottom: 0; padding: 16px;">
+    <div style="font-family: var(--font-mono); font-size: 0.72rem; color: #555; text-transform: uppercase; font-weight: 700;">TOTAL CARDS</div>
+    <div style="font-family: var(--font-mono); font-size: 1.8rem; font-weight: 800; color: #047857;">{{ total_cards }}</div>
   </div>
-  <div class="glass-card" style="margin-bottom: 0; padding: 18px;">
-    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Expected Total</div>
-    <div style="font-size: 1.6rem; font-weight: 800; color: #a5b4fc;">{{ format_cents(total_revenue_cents) }}</div>
+  <div class="glass-card" style="margin-bottom: 0; padding: 16px;">
+    <div style="font-family: var(--font-mono); font-size: 0.72rem; color: #555; text-transform: uppercase; font-weight: 700;">EXPECTED TOTAL</div>
+    <div style="font-family: var(--font-mono); font-size: 1.8rem; font-weight: 800; color: var(--text-dark);">{{ format_cents(total_revenue_cents) }}</div>
   </div>
 </div>
 
 <!-- Export Action Bar -->
 <div class="glass-card" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
   <div>
-    <strong style="font-size: 1.05rem;">Production Downloads</strong>
-    <p style="font-size: 0.82rem; color: var(--text-muted);">Download data reports or the complete ready-to-upscale ZIP package.</p>
+    <strong style="font-family: var(--font-display); font-size: 1.15rem; text-transform: uppercase;">Production Downloads</strong>
+    <p style="font-family: var(--font-mono); font-size: 0.8rem; color: #555; margin-top: 4px;">Download data reports or the complete ready-to-upscale ZIP package.</p>
   </div>
   <div style="display: flex; gap: 10px; flex-wrap: wrap;">
     <a href="/admin/export/csv" class="btn btn-secondary">
-      📊 {{ t("download_csv") }}
+      [📊 {{ t("download_csv") }}]
     </a>
     <a href="/admin/export/zip" class="btn btn-primary">
-      📦 {{ t("download_zip") }}
+      [📦 {{ t("download_zip") }}]
     </a>
   </div>
 </div>
 
 <!-- Live Pricing Settings -->
 <div class="glass-card">
-  <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 16px;">{{ t("pricing_settings") }}</h2>
+  <h2 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; text-transform: uppercase; margin-bottom: 16px;">{{ t("pricing_settings") }}</h2>
   <form action="/admin/pricing" method="POST" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: flex-end;">
     <input type="hidden" name="lang" value="{{ lang }}">
 
@@ -93,7 +98,7 @@
 
     <div>
       <button type="submit" class="btn btn-primary btn-block">
-        💾 {{ t("save_pricing") }}
+        [💾 {{ t("save_pricing") }}]
       </button>
     </div>
   </form>
@@ -101,13 +106,13 @@
 
 <!-- Submissions Table -->
 <div class="glass-card">
-  <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 16px;">{{ t("submissions_overview") }}</h2>
+  <h2 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; text-transform: uppercase; margin-bottom: 16px;">{{ t("submissions_overview") }}</h2>
 
   {% if not orders %}
-    <p style="color: var(--text-muted); font-size: 0.9rem;">No decklists submitted yet.</p>
+    <p style="font-family: var(--font-mono); color: #555; font-size: 0.88rem;">// NO DECKLISTS SUBMITTED IN THIS RUN CYCLE YET.</p>
   {% else %}
-    <div class="table-responsive">
-      <table class="data-table">
+    <div style="overflow-x: auto;">
+      <table class="admin-table">
         <thead>
           <tr>
             <th>{{ t("your_name") }}</th>
@@ -115,7 +120,7 @@
             <th>{{ t("decks_count") }}</th>
             <th>{{ t("cards_count") }}</th>
             <th>{{ t("amount_owed") }}</th>
-            <th>Status</th>
+            <th>STATUS</th>
             <th>{{ t("actions") }}</th>
           </tr>
         </thead>
@@ -123,34 +128,34 @@
           {% for o in orders %}
           <tr>
             <td>
-              <strong>{{ o.submitter_name }}</strong>
-              <div style="font-size: 0.75rem; color: var(--text-dim);">{{ o.created_at.strftime('%b %d, %H:%M') }}</div>
+              <strong style="font-family: var(--font-mono);">{{ o.submitter_name }}</strong>
+              <div style="font-size: 0.72rem; color: #666;">{{ o.created_at.strftime('%b %d, %H:%M') }}</div>
             </td>
             <td>
-              <span style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">
+              <span style="font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; background: #FFFFFF; border: 1px solid var(--border-ink); padding: 2px 6px;">
                 {{ o.reference_code }}
               </span>
             </td>
             <td>{{ o.total_lists }}</td>
-            <td style="font-weight: 600; color: #34d399;">{{ o.total_cards }}</td>
-            <td style="font-weight: 700;">{{ format_cents(o.total_price_cents) }}</td>
+            <td style="font-weight: 700; color: #047857;">{{ o.total_cards }}</td>
+            <td style="font-weight: 800;">{{ format_cents(o.total_price_cents) }}</td>
             <td>
               {% if o.status == "PAID" %}
-                <span class="badge badge-green">{{ t("status_paid") }}</span>
+                <span class="badge badge-green">[PAID]</span>
               {% else %}
-                <span class="badge badge-yellow">{{ t("status_ready") }}</span>
+                <span class="badge badge-yellow">[READY]</span>
               {% endif %}
             </td>
             <td>
               <div style="display: flex; gap: 6px; align-items: center;">
                 <form action="/admin/order/{{ o.order_id }}/toggle-paid" method="POST" style="display: inline;">
-                  <button type="submit" class="btn btn-secondary" style="font-size: 0.74rem; padding: 4px 10px;">
-                    {% if o.status == "PAID" %}{{ t("mark_unpaid") }}{% else %}✓ {{ t("mark_paid") }}{% endif %}
+                  <button type="submit" class="btn btn-secondary" style="font-size: 0.72rem; padding: 4px 8px;">
+                    {% if o.status == "PAID" %}[MARK UNPAID]{% else %}[✓ MARK PAID]{% endif %}
                   </button>
                 </form>
                 <form action="/admin/order/{{ o.order_id }}/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this submission?');">
-                  <button type="submit" class="btn btn-danger" style="font-size: 0.74rem; padding: 4px 8px;">
-                    ✕
+                  <button type="submit" class="btn btn-danger" style="font-size: 0.72rem; padding: 4px 8px;">
+                    [✕]
                   </button>
                 </form>
               </div>
@@ -159,26 +164,26 @@
 
           <!-- Expandable Details Row -->
           <tr>
-            <td colspan="7" style="background: rgba(0, 0, 0, 0.2); padding: 10px 16px;">
-              <details style="font-size: 0.82rem; color: var(--text-muted);">
-                <summary style="cursor: pointer; font-weight: 600; color: #a5b4fc;">
-                  View Decks &amp; Backs ({{ o.decks|length }})
+            <td colspan="7" style="background: #EFEBE4; padding: 10px 14px; border: 1px dashed rgba(17,17,17,0.3);">
+              <details style="font-size: 0.8rem; font-family: var(--font-mono);">
+                <summary style="cursor: pointer; font-weight: 700; color: var(--text-dark); text-transform: uppercase;">
+                  [+] VIEW DECKS &amp; BACKS ({{ o.decks|length }})
                 </summary>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 10px;">
                   {% for d in o.decks %}
-                  <div style="background: rgba(11, 16, 28, 0.7); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 10px; display: flex; gap: 10px; align-items: center;">
+                  <div style="background: #FFFFFF; border: 1px solid var(--border-ink); padding: 10px; display: flex; gap: 10px; align-items: center; box-shadow: 2px 2px 0px #000000;">
                     {% if d.custom_back_filename %}
-                      <img src="/api/deck/{{ d.id }}/back" alt="Back" style="width: 38px; height: 52px; object-fit: cover; border-radius: 4px;">
+                      <img src="/api/deck/{{ d.id }}/back" alt="Back" style="width: 38px; height: 52px; object-fit: cover; border: 1px solid var(--border-ink);">
                     {% else %}
-                      <div style="width: 38px; height: 52px; background: rgba(255,255,255,0.05); border-radius: 4px; display: grid; place-content: center; font-size: 0.65rem; color: var(--text-dim); text-align: center;">Default Back</div>
+                      <div style="width: 38px; height: 52px; background: #DDD; border: 1px solid var(--border-ink); display: grid; place-content: center; font-size: 0.62rem; color: #666; text-align: center; font-weight: 700;">DEFAULT</div>
                     {% endif %}
                     <div>
-                      <strong style="color: #fff; font-size: 0.86rem;">{{ d.name }}</strong>
-                      <div style="color: var(--text-muted); font-size: 0.78rem;">
-                        Lang: <strong>{{ d.preferred_language.upper() }}</strong> &bull; {{ d.card_count }} cards
+                      <strong style="color: var(--text-dark); font-size: 0.86rem;">{{ d.name }}</strong>
+                      <div style="color: #666; font-size: 0.74rem;">
+                        LANG: <strong>{{ d.preferred_language.upper() }}</strong> &bull; {{ d.card_count }} CARDS
                       </div>
                       {% if d.moxfield_url %}
-                        <a href="{{ d.moxfield_url }}" target="_blank" rel="noopener" style="font-size: 0.74rem;">Moxfield &nearr;</a>
+                        <a href="{{ d.moxfield_url }}" target="_blank" rel="noopener" style="font-size: 0.72rem; color: var(--accent-riso); font-weight: 700;">[MOXFIELD &nearr;]</a>
                       {% endif %}
                     </div>
                   </div>

@@ -2,58 +2,64 @@
 
 {% block content %}
 <div class="hero">
-  <div class="success-icon-badge" style="margin: 0 auto 16px;">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="20 6 9 17 4 12"></polyline>
-    </svg>
+  <div style="display: inline-block; margin-bottom: 10px;">
+    <span class="badge" style="background: var(--accent-acid); color: var(--text-dark); border: 2px solid var(--text-dark); font-weight: 800; transform: rotate(-1deg); display: inline-block;">
+      [PRINT-SHOP ORDER LOGGED // READY FOR RIP PROCESSING]
+    </span>
   </div>
   <h1>{{ t("confirmation_title") }}</h1>
   <p>{{ t("confirmation_subtitle") }}</p>
 </div>
 
-<div class="glass-card" style="text-align: center; border-color: rgba(99, 102, 241, 0.4);">
-  <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
-    {{ t("reference_code") }}
+<!-- Physical Work Ticket Voucher -->
+<div class="glass-card" style="text-align: center; border: 2px solid var(--border-ink);">
+  <div style="font-family: var(--font-mono); font-size: 0.76rem; font-weight: 800; color: #555; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;">
+    ✄ --- PRE-PRESS PRODUCTION IDENTIFIER &bull; ATTACH TO PHYSICAL ORDER --- ✄
   </div>
-  <div style="font-family: var(--font-mono); font-size: 1.8rem; font-weight: 800; color: #a5b4fc; letter-spacing: 0.08em; background: rgba(0, 0, 0, 0.4); padding: 12px 20px; border-radius: var(--radius-md); display: inline-block; margin-bottom: 12px; border: 1px dashed rgba(99, 102, 241, 0.5);">
+  <div style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 900; color: var(--text-dark); letter-spacing: 0.08em; background: #FFFFFF; padding: 14px 24px; border: 2px dashed var(--border-ink); display: inline-block; margin-bottom: 12px; box-shadow: 4px 4px 0px #000000;">
     {{ order.reference_code }}
   </div>
-  <div style="font-size: 0.82rem; color: var(--text-dim);">
+  <div style="font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; color: #444;">
     {{ t("reference_hint") }}
   </div>
 </div>
 
 <div class="glass-card">
-  <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 16px;">{{ t("order_summary") }}</h2>
+  <div class="card-header-bar">
+    <strong style="font-family: var(--font-display); font-size: 1.25rem; text-transform: uppercase;">{{ t("order_summary") }}</strong>
+    <span class="badge badge-green">[STATUS: LOGGED]</span>
+  </div>
 
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
-    <div style="background: rgba(0, 0, 0, 0.3); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-      <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Submitter</div>
-      <div style="font-size: 1.1rem; font-weight: 700; color: #fff;">{{ order.submitter_name }}</div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px;">
+    <div style="background: #FFFFFF; padding: 14px; border: 2px solid var(--border-ink); box-shadow: 3px 3px 0px #000000;">
+      <div style="font-family: var(--font-mono); font-size: 0.7rem; color: #666; text-transform: uppercase; font-weight: 700;">SUBMITTER / OPERATOR</div>
+      <div style="font-family: var(--font-mono); font-size: 1.15rem; font-weight: 800; color: var(--text-dark);">{{ order.submitter_name }}</div>
     </div>
-    <div style="background: rgba(0, 0, 0, 0.3); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-      <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">{{ t("total_decks") }}</div>
-      <div style="font-size: 1.1rem; font-weight: 700; color: #fff;">{{ order.total_lists }}</div>
+    <div style="background: #FFFFFF; padding: 14px; border: 2px solid var(--border-ink); box-shadow: 3px 3px 0px #000000;">
+      <div style="font-family: var(--font-mono); font-size: 0.7rem; color: #666; text-transform: uppercase; font-weight: 700;">TOTAL PRINT LISTS</div>
+      <div style="font-family: var(--font-mono); font-size: 1.15rem; font-weight: 800; color: var(--text-dark);">{{ order.total_lists }}</div>
     </div>
-    <div style="background: rgba(0, 0, 0, 0.3); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-      <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">{{ t("total_cards") }}</div>
-      <div style="font-size: 1.1rem; font-weight: 700; color: #34d399;">{{ order.total_cards }}</div>
+    <div style="background: #FFFFFF; padding: 14px; border: 2px solid var(--border-ink); box-shadow: 3px 3px 0px #000000;">
+      <div style="font-family: var(--font-mono); font-size: 0.7rem; color: #666; text-transform: uppercase; font-weight: 700;">TOTAL CARD SLOTS</div>
+      <div style="font-family: var(--font-mono); font-size: 1.15rem; font-weight: 800; color: #047857;">{{ order.total_cards }}</div>
     </div>
   </div>
 
-  <div style="margin-bottom: 20px;">
-    <h3 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; color: var(--text-muted);">Submitted Decks</h3>
+  <div style="margin-bottom: 24px;">
+    <div style="font-family: var(--font-mono); font-size: 0.8rem; font-weight: 800; text-transform: uppercase; color: var(--text-dark); margin-bottom: 10px; border-bottom: 2px dashed rgba(17,17,17,0.3); padding-bottom: 6px;">
+      /// REGISTERED PRINT RUN DECKS ///
+    </div>
     {% for deck in order.decks %}
-    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-sm); margin-bottom: 8px; border: 1px solid var(--border-subtle);">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #FFFFFF; border: 2px solid var(--border-ink); margin-bottom: 8px; box-shadow: 2px 2px 0px #000000;">
       <div>
-        <strong>{{ deck.name }}</strong>
-        <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 8px;">
-          Lang: {{ deck.preferred_language.upper() }} &bull; {{ deck.card_count }} cards
+        <strong style="font-family: var(--font-mono); font-size: 0.9rem;">{{ deck.name }}</strong>
+        <span style="font-family: var(--font-mono); font-size: 0.76rem; color: #666; margin-left: 8px;">
+          // LANG: {{ deck.preferred_language.upper() }} &bull; {{ deck.card_count }} CARDS
         </span>
       </div>
       <div>
         {% if deck.custom_back_filename %}
-          <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc;">Custom Back</span>
+          <span class="badge" style="background: var(--text-dark); color: var(--accent-acid); font-size: 0.68rem;">[CUSTOM BACK]</span>
         {% endif %}
       </div>
     </div>
@@ -61,15 +67,15 @@
   </div>
 
   {% if deck_changes %}
-  <div style="margin-bottom: 24px; padding-top: 14px; border-top: 1px solid var(--border-subtle);">
-    <details open style="font-size: 0.86rem; color: var(--text-muted);">
-      <summary style="cursor: pointer; font-weight: 700; color: #fbbf24; margin-bottom: 10px;">
-        Detailed Log of Applied Card Changes (hover over cards to compare Version 1 vs Version 2)
+  <div style="margin-bottom: 24px; padding-top: 14px; border-top: 2px dashed var(--border-ink);">
+    <details open style="font-size: 0.86rem;">
+      <summary style="cursor: pointer; font-family: var(--font-mono); font-weight: 800; color: var(--text-dark); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.04em;">
+        [+] DETAILED REVISIONS LOG &bull; REPLACED CARDS (HOVER TO PREVIEW V1 VS V2)
       </summary>
       {% for group in deck_changes %}
-        <div style="margin-bottom: 14px;">
-          <div style="font-size: 0.84rem; font-weight: 600; color: #fff; margin-bottom: 6px;">
-            {{ group.deck.name }}
+        <div style="margin-bottom: 16px;">
+          <div style="font-family: var(--font-mono); font-size: 0.8rem; font-weight: 800; color: var(--text-dark); margin-bottom: 6px; text-transform: uppercase;">
+            // {{ group.deck.name }}
           </div>
           {% for item in group.items %}
             <div class="change-item-row has-card-hover"
@@ -79,12 +85,12 @@
                  data-v2-label="{{ item.fixed_version_label or item.fixed_line }}"
                  data-reason="{{ item.message }}">
               <div style="display: flex; align-items: center; gap: 10px;">
-                <span class="badge badge-yellow" style="font-size: 0.7rem;">{{ item.category.replace('_', ' ') }}</span>
-                <strong style="color: #fff;">{{ item.qty }}x {{ item.name }}</strong>
+                <span class="badge badge-yellow" style="font-size: 0.68rem;">{{ item.category.replace('_', ' ') }}</span>
+                <strong style="font-family: var(--font-mono);">{{ item.qty }}x {{ item.name }}</strong>
               </div>
               <div class="compare-chips">
                 <span class="version-chip version-chip-v1">{{ item.original_version_label or 'V1: Requested' }}</span>
-                <span style="color: var(--text-muted);">&rarr;</span>
+                <span style="font-weight: 900; color: #111;">&rarr;</span>
                 <span class="version-chip version-chip-v2">{{ item.fixed_version_label or 'V2: Replaced' }}</span>
               </div>
             </div>
@@ -93,24 +99,26 @@
       {% endfor %}
     </details>
   </div>
+  {% else %}
+  <div style="font-family: var(--font-mono); font-size: 0.78rem; font-weight: 700; color: #047857; background: #ECFDF5; border: 2px solid #10B981; padding: 10px 14px; margin-bottom: 20px;">
+    [✓] ALL PRINTINGS VERIFIED CLEAN &bull; NO AUTOMATIC EDITIONS WERE SUBSTITUTED.
+  </div>
   {% endif %}
 
+  <!-- Thermal Work Ticket Cost Breakdown -->
   <div class="quote-box" style="margin-bottom: 0;">
-    <div style="font-size: 0.82rem; font-weight: 700; color: #a5b4fc; text-transform: uppercase; margin-bottom: 8px;">
-      {{ t("cost_breakdown") }}
-    </div>
     <div class="quote-row">
       <span>{{ t("price_per_card", order.total_cards, rates.price_per_card_cents / 100.0) }}</span>
-      <span>{{ format_cents(order.total_cards * rates.price_per_card_cents) }}</span>
+      <span style="font-weight: 700;">{{ format_cents(order.total_cards * rates.price_per_card_cents) }}</span>
     </div>
     <div class="quote-row">
       <span>{{ t("price_per_list", order.total_lists, rates.price_per_list_cents / 100.0) }}</span>
-      <span>{{ format_cents(order.total_lists * rates.price_per_list_cents) }}</span>
+      <span style="font-weight: 700;">{{ format_cents(order.total_lists * rates.price_per_list_cents) }}</span>
     </div>
     {% if rates.order_fee_cents > 0 %}
     <div class="quote-row">
       <span>{{ t("order_fee") }}</span>
-      <span>{{ format_cents(rates.order_fee_cents) }}</span>
+      <span style="font-weight: 700;">{{ format_cents(rates.order_fee_cents) }}</span>
     </div>
     {% endif %}
     <div class="quote-row total-row">
@@ -122,7 +130,7 @@
 
 <div class="action-row">
   <a href="/?lang={{ lang }}" class="btn btn-secondary btn-block">
-    &larr; Submit Another Order
+    [&larr; SUBMIT ANOTHER ORDER]
   </a>
 </div>
 {% endblock %}

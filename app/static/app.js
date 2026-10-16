@@ -118,11 +118,12 @@ function addDeckForm() {
   deckCount++;
   countInput.value = deckCount;
 
+  const padIdx = String(idx + 1).padStart(3, '0');
   const cardHtml = `
   <div class="glass-card" id="deck-card-${idx}">
     <div class="card-header-bar">
-      <span class="deck-tag">Deck #${idx + 1}</span>
-      <button type="button" class="btn btn-danger" onclick="removeDeckForm(${idx})">✕ Remove</button>
+      <span class="deck-tag">[${padIdx}] Deck #${idx + 1}</span>
+      <button type="button" class="btn btn-danger" onclick="removeDeckForm(${idx})" style="padding: 6px 12px; font-size: 0.76rem;">[✕ REMOVE]</button>
     </div>
 
     <div class="form-group">
@@ -133,8 +134,8 @@ function addDeckForm() {
     <input type="hidden" name="source_type_${idx}" value="url">
 
     <div class="tabs-nav">
-      <button type="button" class="tab-btn active" data-tab="url" onclick="switchTab(${idx}, 'url')">Moxfield URL</button>
-      <button type="button" class="tab-btn" data-tab="text" onclick="switchTab(${idx}, 'text')">Paste Text</button>
+      <button type="button" class="tab-btn active" data-tab="url" onclick="switchTab(${idx}, 'url')">[Moxfield URL]</button>
+      <button type="button" class="tab-btn" data-tab="text" onclick="switchTab(${idx}, 'text')">[Paste Text]</button>
     </div>
 
     <div class="tab-content active" data-tab-content="url">
@@ -209,8 +210,8 @@ function addDeckForm() {
       <label class="form-label">Custom Card Back (Optional)</label>
       <label class="upload-dropzone" for="custom_back_${idx}">
         <img id="preview_img_${idx}" class="upload-preview" alt="Card back preview">
-        <div id="upload_prompt_${idx}" style="font-size: 0.84rem; color: var(--text-muted);">
-          📷 Click to upload custom card back (JPG or PNG)
+        <div id="upload_prompt_${idx}" style="font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700; color: var(--text-dark);">
+          [+ UPLOAD CUSTOM CARD BACK] &bull; JPG / PNG / WEBP
         </div>
         <input type="file" id="custom_back_${idx}" name="custom_back_${idx}" accept="image/png, image/jpeg, image/webp" 
                style="display: none;" onchange="handleImageUpload(this, ${idx})">

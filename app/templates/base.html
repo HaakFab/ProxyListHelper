@@ -7,23 +7,28 @@
   <meta name="description" content="Convert Moxfield MTG decklists into print-ready files with intelligent auto-fixing, custom backs, and language selection.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
+<body class="cutting-mat-workspace">
+  <!-- Pre-press registration crosshair marks -->
+  <div class="registration-mark mark-tl">+</div>
+  <div class="registration-mark mark-tr">+</div>
+
   <header class="site-header">
     <div class="container nav-wrap">
       <a href="/?lang={{ lang }}" class="logo-link">
-        <span class="logo-badge">MTG</span>
-        <span>ProxyListHelper</span>
+        <span class="logo-badge">PRE-PRESS</span>
+        <span class="logo-text">PROXY//CORE</span>
+        <span class="logo-tag">[V3.2]</span>
       </a>
 
       <div class="nav-actions">
         <div class="lang-switch">
-          <a href="?lang=en" class="lang-btn {% if lang == 'en' %}active{% endif %}">EN</a>
-          <a href="?lang=de" class="lang-btn {% if lang == 'de' %}active{% endif %}">DE</a>
+          <a href="?lang=en" class="lang-btn {% if lang == 'en' %}active{% endif %}">[EN]</a>
+          <a href="?lang=de" class="lang-btn {% if lang == 'de' %}active{% endif %}">[DE]</a>
         </div>
-        <a href="/admin?lang={{ lang }}" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-left: 8px;">Admin</a>
+        <a href="/admin?lang={{ lang }}" class="admin-nav-link">[ADMIN]</a>
       </div>
     </div>
   </header>
@@ -35,9 +40,10 @@
   </main>
 
   <footer class="site-footer">
-    <div class="container">
-      <p>ProxyListHelper &bull; Private &amp; Non-Commercial Community Tool</p>
-      <p style="margin-top: 4px; color: var(--text-dim);">Wizards of the Coast and Magic: The Gathering are trademarks of Hasbro, Inc. This tool is not affiliated with Scryfall or Moxfield.</p>
+    <div class="container footer-content">
+      <div class="footer-cut-guide">✄ --- PRE-PRESS COMMUNITY UTILITY &bull; 1200 DPI BLEED READY --- ✄</div>
+      <p>PROXY//CORE &bull; Independent DIY Utility for Moxfield &amp; MPC Print Runs</p>
+      <p style="margin-top: 4px; color: var(--text-muted); font-size: 0.72rem;">Magic: The Gathering is a registered trademark of Hasbro/WotC. Not affiliated with Scryfall or Moxfield.</p>
     </div>
   </footer>
 

@@ -2,14 +2,20 @@
 
 {% block content %}
 <div class="hero">
+  <div style="display: inline-block; margin-bottom: 10px;">
+    <span class="badge" style="background: var(--accent-acid); color: var(--text-dark); border: 2px solid var(--text-dark); font-weight: 800; transform: rotate(-1deg); display: inline-block;">
+      [PRE-PRESS OPERATOR AUTHENTICATION]
+    </span>
+  </div>
   <h1>{{ t("admin_login") }}</h1>
-  <p>Enter the administrator password to access live pricing and orders.</p>
+  <p>ENTER OPERATOR PASSKEY TO ACCESS PRODUCTION BATCH DISPATCH &amp; PRICING RULES.</p>
 </div>
 
 <div class="glass-card" style="max-width: 440px; margin: 0 auto;">
   {% if error %}
-  <div style="background: var(--red-bg); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 0.88rem;">
-    Invalid password. Please try again.
+  <div class="alert alert-danger" style="margin-bottom: 16px;">
+    <span style="font-weight: 900;">[!]</span>
+    <div><strong>ACCESS DENIED:</strong> Invalid password. Please try again.</div>
   </div>
   {% endif %}
 
@@ -17,12 +23,14 @@
     <input type="hidden" name="lang" value="{{ lang }}">
 
     <div class="form-group">
-      <label class="form-label" for="password">{{ t("password") }}</label>
+      <label class="form-label" for="password">
+        <span style="color: var(--accent-riso); margin-right: 4px;">&gt;</span>{{ t("password") }}
+      </label>
       <input type="password" class="form-input" id="password" name="password" required autofocus>
     </div>
 
-    <button type="submit" class="btn btn-primary btn-block">
-      {{ t("login") }}
+    <button type="submit" class="btn btn-primary btn-block" style="padding: 14px; font-size: 0.95rem;">
+      [{{ t("login") }} &rarr;]
     </button>
   </form>
 </div>
