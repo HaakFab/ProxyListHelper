@@ -394,3 +394,74 @@ def serve_deck_cardback(deck_id: int, db: Session = Depends(get_db)):
         content=deck.custom_back_data,
         media_type=deck.custom_back_content_type or "image/jpeg"
     )
+
+@router.get("/order/{order_id}/download")
+def download_order_overview(order_id: str, db: Session = Depends(get_db)):
+    """Downloads a complete order summary text ticket including decks overview, cost breakdown, and payment reference code."""
+    order = db.query(Order).filter(Order.order_id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    lines = []
+    lines.append("================================================================================")
+    lines.append("                 PROXY//CORE - ORDER OVERVIEW & PAYMENT VOUCHER                 ")
+    lines.append("================================================================================")
+    lines.append("")
+    lines.append(f"SUBMITTER:              {order.submitter_name}")
+    lines.append(f"PAYMENT REFERENCE CODE: {order.reference_code}")
+    lines.append(f"STATUS:                 {order.status}")
+    lines.append(f"ORDER DATE (UTC):       {order.created_at.strftime('%Y-%m-%d %H:%M')}")
+    lines.append("")
+    lines.append("--------------------------------------------------------------------------------")
+    lines.append("PAYMENT INFORMATION / ZAHLUNGSINFORMATION")
+    lines.append("--------------------------------------------------------------------------------")
+    lines.append(f"TOTAL AMOUNT TO PAY:    {order.total_price_cents / 100.0:.2f} EUR")
+    lines.append(f"PAYMENT REFERENCE CODE: {order.reference_code}")
+    lines.append("NOTE:                   Please include the exact payment reference code above")
+    lines.append("                        in your payment note / Verwendungszweck.")
+    lines.append("")
+    lines.append("--------------------------------------------------------------------------------")
+    lines.append("COST BREAKDOWN / KOSTENÜBERSICHT")
+    lines.append("--------------------------------------------------------------------------------")
+    card_rate = (order.price_per_card_cents or 13) / 100.0
+    list_rate = (order.price_per_list_cents or 26) / 100.0
+    fee_rate = (order.order_fee_cents or 0) / 100.0
+    card_subtotal = (order.total_cards * (order.price_per_card_cents or 13)) / 100.0
+    list_subtotal = (order.total_lists * (order.price_per_list_cents or 26)) / 100.0
+
+    lines.append(f"Total Cards:     {order.total_cards:4d} cards  x  {card_rate:.2f} EUR  =  {card_subtotal:7.2f} EUR")
+    lines.append(f"Total Lists:     {order.total_lists:4d} lists  x  {list_rate:.2f} EUR  =  {list_subtotal:7.2f} EUR")
+    if order.order_fee_cents and order.order_fee_cents > 0:
+        lines.append(f"Order Fee:                                            {fee_rate:7.2f} EUR")
+    lines.append("--------------------------------------------------------------------------------")
+    lines.append(f"TOTAL:                                               {order.total_price_cents / 100.0:7.2f} EUR")
+    lines.append("")
+    lines.append("--------------------------------------------------------------------------------")
+    lines.append("REGISTERED DECKLISTS & CARDS OVERVIEW")
+    lines.append("--------------------------------------------------------------------------------")
+    for d in order.decks:
+        lines.append(f"DECK #{d.ordinal}: {d.name}")
+        lines.append(f"  - Language:    {d.preferred_language.upper()}")
+        lines.append(f"  - Card Count:  {d.card_count} cards")
+        lines.append(f"  - Card Back:   {'Custom back: ' + d.custom_back_filename if d.custom_back_filename else 'Default back'}")
+        if d.moxfield_url:
+            lines.append(f"  - Moxfield:    {d.moxfield_url}")
+        lines.append("")
+        if d.converted_text:
+            lines.append("  [Decklist Content]")
+            for card_line in d.converted_text.strip().split("\n"):
+                lines.append(f"    {card_line}")
+        lines.append("")
+
+    lines.append("================================================================================")
+    lines.append("                   THANK YOU FOR PARTICIPATING IN THIS PRINT RUN!               ")
+    lines.append("================================================================================")
+
+    content = "\n".join(lines) + "\n"
+    filename = f"order_overview_{order.reference_code}.txt"
+    return Response(
+        content=content.encode("utf-8"),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+

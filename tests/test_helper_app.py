@@ -532,8 +532,10 @@ def test_order_confirm_and_submit_success_rendering(client):
     # Step 2: GET /success/{order_id}
     success_resp = client.get(resolve_resp.headers["location"])
     assert success_resp.status_code == 200
-    assert "Order submitted, you can close this window now." in success_resp.text
-    assert "Make sure to copy your reference code below" in success_resp.text
+    assert "Order submitted, please download your overview including payment information" in success_resp.text
+    assert "HERE" in success_resp.text
+    assert f"/order/{test_order.order_id}/download" in success_resp.text
+    assert "DOWNLOAD ORDER OVERVIEW" in success_resp.text
     assert "copyRefCode" in success_resp.text
     assert "COPY REFERENCE CODE" in success_resp.text
     assert 'meta http-equiv="refresh"' not in success_resp.text
@@ -543,6 +545,20 @@ def test_order_confirm_and_submit_success_rendering(client):
     assert "FOIL REPLACED" in success_resp.text
     assert "data-v1-img=\"https://cards.scryfall.io/v1.jpg\"" in success_resp.text
     assert "data-v2-img=\"https://cards.scryfall.io/v2.jpg\"" in success_resp.text
+
+    # Step 3: GET /order/{order_id}/download
+    download_resp = client.get(f"/order/{test_order.order_id}/download")
+    assert download_resp.status_code == 200
+    assert "text/plain" in download_resp.headers["content-type"]
+    assert f'order_overview_{test_order.reference_code}.txt' in download_resp.headers["content-disposition"]
+    text_content = download_resp.text
+    assert test_order.submitter_name in text_content
+    assert test_order.reference_code in text_content
+    assert "PAYMENT INFORMATION" in text_content
+    assert "COST BREAKDOWN" in text_content
+    assert "REGISTERED DECKLISTS & CARDS OVERVIEW" in text_content
+    assert "Test Deck" in text_content
+    assert "1 Sol Ring (CMM) 401" in text_content
 
 
 def test_moxfield_include_stickers():

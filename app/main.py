@@ -51,7 +51,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     <div style="font-family: var(--font-mono); font-size: 0.8rem; font-weight: 800; color: #047857; text-transform: uppercase; margin-bottom: 8px;">
       [ORDER TRANSMISSION CONFIRMED]
     </div>
-    <h1 style="font-size: 1.8rem; margin-bottom: 12px; line-height: 1.25;">Order submitted, you can close this window now.</h1>
+    <h1 style="font-size: 1.8rem; margin-bottom: 12px; line-height: 1.25;">Order submitted, please download your overview including payment information HERE.</h1>
     <p style="font-size: 1.1rem; font-weight: 700; margin-bottom: 24px; color: #111111;">Your order has been recorded. Click below when you are ready to return to the starting screen.</p>
     <a href="/?lang=en" class="btn btn-primary" style="padding: 12px 24px;">[RETURN TO STARTING SCREEN]</a>
   </div>

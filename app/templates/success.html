@@ -7,8 +7,18 @@
       [ORDER TRANSMISSION CONFIRMED // LOGGED TO PRODUCTION QUEUE]
     </span>
   </div>
-  <h1 style="font-size: 2.1rem; line-height: 1.25; margin-bottom: 10px;">{{ t("confirmation_title") }}</h1>
-  <p style="font-size: 1.1rem; font-weight: 700; color: #111111; margin-bottom: 0;">{{ t("confirmation_subtitle") }}</p>
+  <h1 style="font-size: 2.05rem; line-height: 1.3; margin-bottom: 12px;">
+    {% if order %}
+      {% if lang == 'de' %}
+        Bestellung übermittelt, bitte lade deine Übersicht inklusive Zahlungsinformationen <a href="/order/{{ order.order_id }}/download" style="color: var(--text-dark); text-decoration: underline; background: var(--accent-acid); padding: 2px 8px; border: 2px solid var(--border-ink); box-shadow: 2px 2px 0px #000000; font-family: var(--font-mono); white-space: nowrap;">HIER</a> herunter.
+      {% else %}
+        Order submitted, please download your overview including payment information <a href="/order/{{ order.order_id }}/download" style="color: var(--text-dark); text-decoration: underline; background: var(--accent-acid); padding: 2px 8px; border: 2px solid var(--border-ink); box-shadow: 2px 2px 0px #000000; font-family: var(--font-mono); white-space: nowrap;">HERE</a>.
+      {% endif %}
+    {% else %}
+      {{ t("confirmation_title") }}
+    {% endif %}
+  </h1>
+  <p style="font-size: 1.05rem; font-weight: 600; color: #D1D5DB; margin-bottom: 0;">{{ t("confirmation_subtitle") }}</p>
 </div>
 
 {% if order %}
@@ -20,8 +30,11 @@
   <div id="reference-code-display" style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 900; color: var(--text-dark); letter-spacing: 0.08em; background: #F8FAFC; padding: 14px 24px; border: 2px dashed var(--border-ink); display: inline-block; margin-bottom: 14px; box-shadow: 3px 3px 0px #000000;">
     {{ order.reference_code }}
   </div>
-  <div style="margin-bottom: 12px;">
-    <button type="button" id="copy-code-btn" class="btn btn-primary" onclick="copyRefCode('{{ order.reference_code }}')" style="font-size: 0.88rem; padding: 10px 20px;">
+  <div style="margin-bottom: 14px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+    <a href="/order/{{ order.order_id }}/download" class="btn btn-primary" style="font-size: 0.9rem; padding: 10px 20px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+      [📥 {{ t("download_order_overview")|upper }}]
+    </a>
+    <button type="button" id="copy-code-btn" class="btn btn-secondary" onclick="copyRefCode('{{ order.reference_code }}')" style="font-size: 0.88rem; padding: 10px 20px;">
       [{{ t("copy_reference_code")|upper }}]
     </button>
   </div>
