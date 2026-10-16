@@ -532,6 +532,10 @@ def test_order_confirm_and_submit_success_rendering(client):
     # Step 2: GET /success/{order_id}
     success_resp = client.get(resolve_resp.headers["location"])
     assert success_resp.status_code == 200
+    assert "Order submitted, you can close this window now." in success_resp.text
+    assert "You will now be sent back to the starting screen in 10 seconds." in success_resp.text
+    assert 'meta http-equiv="refresh" content="10;url=/?lang=en"' in success_resp.text
+    assert 'id="countdown-timer"' in success_resp.text
     assert test_order.reference_code in success_resp.text
     assert "DETAILED REVISIONS LOG" in success_resp.text
     assert "Sol Ring" in success_resp.text

@@ -1,16 +1,36 @@
 {% extends "base.html" %}
 
+{% block extra_head %}
+<meta http-equiv="refresh" content="10;url=/?lang={{ lang }}">
+{% endblock %}
+
 {% block content %}
 <div class="hero">
-  <div style="display: inline-block; margin-bottom: 10px;">
-    <span class="badge" style="background: var(--accent-acid); color: var(--text-dark); border: 2px solid var(--text-dark); font-weight: 800; transform: rotate(-1deg); display: inline-block;">
-      [PRINT-SHOP ORDER LOGGED // READY FOR RIP PROCESSING]
+  <div style="display: inline-block; margin-bottom: 12px;">
+    <span class="badge" style="background: var(--accent-acid); color: var(--text-dark); border: 2px solid var(--text-dark); font-weight: 800; transform: rotate(-1deg); display: inline-block; padding: 4px 10px;">
+      [ORDER TRANSMISSION CONFIRMED // LOGGED TO PRODUCTION QUEUE]
     </span>
   </div>
-  <h1>{{ t("confirmation_title") }}</h1>
-  <p>{{ t("confirmation_subtitle") }}</p>
+  <h1 style="font-size: 2.1rem; line-height: 1.25; margin-bottom: 10px;">{{ t("confirmation_title") }}</h1>
+  <p style="font-size: 1.15rem; font-weight: 700; color: #111111; margin-bottom: 0;">{{ t("confirmation_subtitle") }}</p>
 </div>
 
+<!-- Automatic 10-Second Redirect Countdown Banner -->
+<div class="glass-card" style="border: 2px solid var(--border-ink); background: #FFFBEB; text-align: center; margin-bottom: 24px; box-shadow: 4px 4px 0px #000000;">
+  <div style="font-family: var(--font-mono); font-size: 0.78rem; font-weight: 800; color: #78350F; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;">
+    // AUTOMATIC SESSION REDIRECT //
+  </div>
+  <div style="font-family: var(--font-mono); font-size: 1.5rem; font-weight: 900; color: #111111; margin-bottom: 14px;">
+    RETURNING TO STARTING SCREEN IN <span id="countdown-timer" style="background: #111111; color: var(--accent-acid); padding: 2px 12px; border: 2px solid #111111; display: inline-block;">10</span> SECONDS
+  </div>
+  <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+    <a href="/?lang={{ lang }}" class="btn btn-primary" style="padding: 12px 24px; font-size: 0.95rem;">
+      [{{ t("return_home_now")|upper }}]
+    </a>
+  </div>
+</div>
+
+{% if order %}
 <!-- Physical Work Ticket Voucher -->
 <div class="glass-card" style="text-align: center; border: 2px solid var(--border-ink);">
   <div style="font-family: var(--font-mono); font-size: 0.76rem; font-weight: 800; color: #555; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;">
@@ -54,7 +74,7 @@
       <div>
         <strong style="font-family: var(--font-mono); font-size: 0.9rem;">{{ deck.name }}</strong>
         <span style="font-family: var(--font-mono); font-size: 0.76rem; color: #666; margin-left: 8px;">
-          // LANG: {{ deck.preferred_language.upper() }} &bull; {{ deck.card_count }} CARDS
+          // LANG: {{ (deck.preferred_language or 'en')|upper }} &bull; {{ deck.card_count }} CARDS
         </span>
       </div>
       <div>
@@ -108,29 +128,48 @@
   <!-- Thermal Work Ticket Cost Breakdown -->
   <div class="quote-box" style="margin-bottom: 0;">
     <div class="quote-row">
-      <span>{{ t("price_per_card", order.total_cards, rates.price_per_card_cents / 100.0) }}</span>
-      <span style="font-weight: 700;">{{ format_cents(order.total_cards * rates.price_per_card_cents) }}</span>
+      <span>{{ t("price_per_card", order.total_cards or 0, (rates.price_per_card_cents or 0) / 100.0) }}</span>
+      <span style="font-weight: 700;">{{ format_cents((order.total_cards or 0) * (rates.price_per_card_cents or 0)) }}</span>
     </div>
     <div class="quote-row">
-      <span>{{ t("price_per_list", order.total_lists, rates.price_per_list_cents / 100.0) }}</span>
-      <span style="font-weight: 700;">{{ format_cents(order.total_lists * rates.price_per_list_cents) }}</span>
+      <span>{{ t("price_per_list", order.total_lists or 0, (rates.price_per_list_cents or 0) / 100.0) }}</span>
+      <span style="font-weight: 700;">{{ format_cents((order.total_lists or 0) * (rates.price_per_list_cents or 0)) }}</span>
     </div>
-    {% if rates.order_fee_cents > 0 %}
+    {% if (rates.order_fee_cents or 0) > 0 %}
     <div class="quote-row">
       <span>{{ t("order_fee") }}</span>
-      <span style="font-weight: 700;">{{ format_cents(rates.order_fee_cents) }}</span>
+      <span style="font-weight: 700;">{{ format_cents(rates.order_fee_cents or 0) }}</span>
     </div>
     {% endif %}
     <div class="quote-row total-row">
       <span>{{ t("total") }}</span>
-      <span>{{ format_cents(order.total_price_cents) }}</span>
+      <span>{{ format_cents(order.total_price_cents or 0) }}</span>
     </div>
   </div>
 </div>
+{% endif %}
 
-<div class="action-row">
+<div class="action-row" style="margin-top: 20px;">
   <a href="/?lang={{ lang }}" class="btn btn-secondary btn-block">
-    [&larr; SUBMIT ANOTHER ORDER]
+    [&larr; {{ t("return_home_now")|upper }}]
   </a>
 </div>
+
+<script>
+  (function() {
+    var count = 10;
+    var timerEl = document.getElementById("countdown-timer");
+    var target = "/?lang={{ lang }}";
+    var interval = setInterval(function() {
+      count--;
+      if (timerEl) {
+        timerEl.textContent = count;
+      }
+      if (count <= 0) {
+        clearInterval(interval);
+        window.location.href = target;
+      }
+    }, 1000);
+  })();
+</script>
 {% endblock %}

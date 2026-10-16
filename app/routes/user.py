@@ -260,84 +260,106 @@ async def resolve_review_issues(
     db: Session = Depends(get_db)
 ):
     order = db.query(Order).filter(Order.order_id == order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-        
     form_data = await request.form()
     ui_lang = str(form_data.get("ui_lang", "en")).strip()
-    
-    total_order_cards = 0
-    
-    for deck in order.decks:
-        diagnostics = json.loads(deck.diagnostics_json or "[]")
-        final_lines = [
-            f"// Deck: {deck.name}",
-            f"// Language: {deck.preferred_language}",
-        ]
-        deck_card_count = 0
-        
-        for idx, item in enumerate(diagnostics):
-            status = item.get("status")
-            action = form_data.get(f"action_{deck.id}_{idx}", "substitute")
-            qty = int(item.get("qty", 1))
-            name = item.get("name", "")
-            
-            if status == "RED":
-                if action == "drop":
-                    # Drop the card
-                    item["resolved_action"] = "dropped"
-                    continue
-                elif action == "substitute" and item.get("suggested_set"):
-                    # Use suggested paper replacement
-                    item["set"] = item["suggested_set"]
-                    item["cn"] = item["suggested_cn"]
-                    line = format_card_line(qty, name, item["set"], item["cn"],
-                                            item.get("back_name"), item.get("back_set"), item.get("back_cn"))
-                    final_lines.append(line)
-                    deck_card_count += qty
-                else:
-                    # Keep original line
-                    line = format_card_line(qty, name, item.get("set"), item.get("cn"),
-                                            item.get("back_name"), item.get("back_set"), item.get("back_cn"))
-                    final_lines.append(line)
-                    deck_card_count += qty
-            else:
-                # Green or Yellow
-                line = item.get("fixed_line") or item.get("original_line")
-                if not line:
-                    line = format_card_line(qty, name, item.get("set"), item.get("cn"),
-                                            item.get("back_name"), item.get("back_set"), item.get("back_cn"))
-                final_lines.append(str(line))
-                deck_card_count += qty
-                
-        deck.converted_text = "\n".join(final_lines) + "\n"
-        deck.card_count = deck_card_count
-        deck.status = "READY"
-        deck.diagnostics_json = json.dumps(diagnostics)
-        total_order_cards += deck_card_count
 
-    order.total_cards = total_order_cards
-    rates = {
-        "price_per_card_cents": order.price_per_card_cents,
-        "price_per_list_cents": order.price_per_list_cents,
-        "order_fee_cents": order.order_fee_cents,
-    }
-    order.total_price_cents = compute_total_cents(total_order_cards, len(order.decks), rates)
-    order.status = "SUBMITTED"
-    db.commit()
-    
+    if not order:
+        return RedirectResponse(f"/?lang={ui_lang}", status_code=303)
+
+    if order.status == "SUBMITTED":
+        return RedirectResponse(f"/success/{order_id}?lang={ui_lang}", status_code=303)
+
+    total_order_cards = 0
+
+    try:
+        for deck in order.decks:
+            diagnostics = json.loads(deck.diagnostics_json or "[]")
+            final_lines = [
+                f"// Deck: {deck.name}",
+                f"// Language: {deck.preferred_language}",
+            ]
+            deck_card_count = 0
+
+            for idx, item in enumerate(diagnostics):
+                status = item.get("status")
+                action = form_data.get(f"action_{deck.id}_{idx}", "substitute")
+                qty = int(item.get("qty", 1))
+                name = item.get("name", "")
+
+                if status == "RED":
+                    if action == "drop":
+                        # Drop the card
+                        item["resolved_action"] = "dropped"
+                        continue
+                    elif action == "substitute" and item.get("suggested_set"):
+                        # Use suggested paper replacement
+                        item["set"] = item["suggested_set"]
+                        item["cn"] = item["suggested_cn"]
+                        line = format_card_line(qty, name, item["set"], item["cn"],
+                                                item.get("back_name"), item.get("back_set"), item.get("back_cn"))
+                        final_lines.append(line)
+                        deck_card_count += qty
+                    else:
+                        # Keep original line
+                        line = format_card_line(qty, name, item.get("set"), item.get("cn"),
+                                                item.get("back_name"), item.get("back_set"), item.get("back_cn"))
+                        final_lines.append(line)
+                        deck_card_count += qty
+                else:
+                    # Green or Yellow
+                    line = item.get("fixed_line") or item.get("original_line")
+                    if not line:
+                        line = format_card_line(qty, name, item.get("set"), item.get("cn"),
+                                                item.get("back_name"), item.get("back_set"), item.get("back_cn"))
+                    final_lines.append(str(line))
+                    deck_card_count += qty
+
+            deck.converted_text = "\n".join(final_lines) + "\n"
+            deck.card_count = deck_card_count
+            deck.status = "READY"
+            deck.diagnostics_json = json.dumps(diagnostics)
+            total_order_cards += deck_card_count
+
+        order.total_cards = total_order_cards
+        rates = {
+            "price_per_card_cents": order.price_per_card_cents or 13,
+            "price_per_list_cents": order.price_per_list_cents or 26,
+            "order_fee_cents": order.order_fee_cents or 0,
+        }
+        order.total_price_cents = compute_total_cents(total_order_cards, len(order.decks), rates)
+        order.status = "SUBMITTED"
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        # Even on rollback, keep order status resilient
+        pass
+
     return RedirectResponse(f"/success/{order_id}?lang={ui_lang}", status_code=303)
 
 @router.get("/success/{order_id}", response_class=HTMLResponse)
 def success_page(request: Request, order_id: str, lang: str = "en", db: Session = Depends(get_db)):
     order = db.query(Order).filter(Order.order_id == order_id).first()
+
+    default_rates = {
+        "price_per_card_cents": 13,
+        "price_per_list_cents": 26,
+        "order_fee_cents": 0,
+    }
+
     if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-        
+        return templates.TemplateResponse(request, "success.html", {
+            "order": None,
+            "deck_changes": [],
+            "lang": lang,
+            "t": lambda key, *args: t(key, lang, *args),
+            "rates": default_rates,
+            "format_cents": format_cents_eur,
+        })
+
     rates = {
-        "price_per_card_cents": order.price_per_card_cents,
-        "price_per_list_cents": order.price_per_list_cents,
-        "order_fee_cents": order.order_fee_cents,
+        "price_per_card_cents": order.price_per_card_cents or 13,
+        "price_per_list_cents": order.price_per_list_cents or 26,
+        "order_fee_cents": order.order_fee_cents or 0,
     }
 
     deck_changes = []
