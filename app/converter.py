@@ -77,6 +77,8 @@ class CardAuditItem:
             "fixed_image_url": self.fixed_image_url,
             "original_version_label": self.original_version_label,
             "fixed_version_label": self.fixed_version_label,
+            "original_set": self.set_code,
+            "original_cn": self.cn,
             "back_name": self.back_name,
             "back_set": self.back_set,
             "back_cn": self.back_cn,
@@ -99,6 +101,19 @@ def format_card_line(qty: int, name: str, set_code: Optional[str], cn: Optional[
         return f"{front} &&& {back}"
     return front
 
+def is_token_card(c: dict) -> bool:
+    """Checks whether a card dictionary represents a token or emblem."""
+    board = (c.get("board") or "").lower()
+    if board in ("tokens", "token"):
+        return True
+    s = (c.get("set") or "").lower()
+    name = (c.get("name") or "").lower()
+    if s.startswith("t") and len(s) in (4, 5):
+        return True
+    if name.endswith(" token") or " token " in name or " emblem" in name:
+        return True
+    return False
+
 def process_deck_cards(
     raw_cards: List[dict],
     preferred_language: str = "en",
@@ -106,7 +121,8 @@ def process_deck_cards(
     replace_stamps: bool = True,
     replace_date_stamps: bool = True,
     replace_digital: bool = True,
-    deck_name: str = "Deck"
+    deck_name: str = "Deck",
+    double_sided_tokens: bool = False
 ) -> Tuple[List[CardAuditItem], str, str]:
     """
     Processes all cards in a deck, applying transformations and traffic light checks.
@@ -118,6 +134,30 @@ def process_deck_cards(
         f"// Deck: {deck_name}",
         f"// Language: {preferred_language}",
     ]
+
+    # Handle Double-Sided Tokens if requested: pair tokens cyclically front-to-back
+    if double_sided_tokens:
+        non_tokens = [c for c in raw_cards if not is_token_card(c)]
+        token_cards = [c for c in raw_cards if is_token_card(c)]
+        if token_cards:
+            expanded_tokens = []
+            for tok in token_cards:
+                q = max(1, int(tok.get("qty", 1)))
+                for _ in range(q):
+                    expanded_tokens.append(dict(tok, qty=1))
+
+            n_tokens = len(expanded_tokens)
+            paired_tokens = []
+            for i in range(n_tokens):
+                curr = dict(expanded_tokens[i])
+                next_tok = expanded_tokens[(i + 1) % n_tokens]
+                curr["qty"] = 1
+                curr["back_name"] = next_tok.get("name")
+                curr["back_set"] = (next_tok.get("set") or "").lower() if next_tok.get("set") else None
+                curr["back_cn"] = str(next_tok.get("cn") or "").strip() if next_tok.get("cn") else None
+                paired_tokens.append(curr)
+
+            raw_cards = non_tokens + paired_tokens
     
     # Preload all cards via Scryfall collection batch API for fast sub-second analysis
     preload_cards_batch(raw_cards)

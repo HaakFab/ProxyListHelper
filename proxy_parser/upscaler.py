@@ -154,56 +154,243 @@ def stitch_patches(patches, padded_image_shape, target_shape, padding_size=48):
         col += 1
     return complete_image[0:target_shape[0], 0:target_shape[1], :]
 
-# ==================== Real-ESRGAN Model Engine ====================
+# ==================== Upscaler Model Registry & Engine ====================
 
-HF_URLS = {
-    2: "https://huggingface.co/sberbank-ai/Real-ESRGAN/resolve/main/RealESRGAN_x2.pth",
-    4: "https://huggingface.co/sberbank-ai/Real-ESRGAN/resolve/main/RealESRGAN_x4.pth",
+AVAILABLE_MODELS = {
+    "4x-UltraSharp": {
+        "id": "4x-UltraSharp",
+        "name": "4x-UltraSharp",
+        "display_name": "4x-UltraSharp (Fantasy Art & Painting - Recommended)",
+        "native_scale": 4,
+        "filename": "4x-UltraSharp.pth",
+        "url": "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth",
+        "description": "Gold standard for fantasy illustrations, card art & digital paintings. Eliminates watercolor smearing and artifacts.",
+        "recommended": True,
+    },
+    "4x_Remacri": {
+        "id": "4x_Remacri",
+        "name": "4x_foolhardy_Remacri",
+        "display_name": "4x-Remacri (Natural Textures & Fine Detail)",
+        "native_scale": 4,
+        "filename": "4x_foolhardy_Remacri.pth",
+        "url": "https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth",
+        "description": "Recovers natural micro-textures (cloth, paper, canvas) with smooth gradients and no harsh halos.",
+        "recommended": False,
+    },
+    "4x_NMKD-Superscale": {
+        "id": "4x_NMKD-Superscale",
+        "name": "4x_NMKD-Superscale-SP_178000_G",
+        "display_name": "4x-NMKD Superscale (Clean Lines & Text)",
+        "native_scale": 4,
+        "filename": "4x_NMKD-Superscale-SP_178000_G.pth",
+        "url": "https://huggingface.co/gemasai/4x_NMKD-Superscale-SP_178000_G/resolve/main/4x_NMKD-Superscale-SP_178000_G.pth",
+        "description": "Exceptional sharpness and geometric line preservation. Excellent for rules text and mana symbols.",
+        "recommended": False,
+    },
+    "4x-AnimeSharp": {
+        "id": "4x-AnimeSharp",
+        "name": "4x-AnimeSharp",
+        "display_name": "4x-AnimeSharp (Manga & Cel-Shaded Showcase)",
+        "native_scale": 4,
+        "filename": "4x-AnimeSharp.pth",
+        "url": "https://huggingface.co/Kim2091/AnimeSharp/resolve/main/4x-AnimeSharp.pth",
+        "description": "Optimized for Japanese alternate arts, manga treatments, and cartoon/cel-shaded card frames.",
+        "recommended": False,
+    },
+    "RealESRGAN_x4plus": {
+        "id": "RealESRGAN_x4plus",
+        "name": "RealESRGAN_x4plus",
+        "display_name": "RealESRGAN x4plus (Original Baseline)",
+        "native_scale": 4,
+        "filename": "RealESRGAN_x4.pth",
+        "url": "https://huggingface.co/sberbank-ai/Real-ESRGAN/resolve/main/RealESRGAN_x4.pth",
+        "description": "Original Real-ESRGAN 4x model with aggressive noise and blur reduction.",
+        "recommended": False,
+    },
+    "RealESRGAN_x2": {
+        "id": "RealESRGAN_x2",
+        "name": "RealESRGAN_x2",
+        "display_name": "RealESRGAN x2 (Fast 2x Baseline)",
+        "native_scale": 2,
+        "filename": "RealESRGAN_x2.pth",
+        "url": "https://huggingface.co/sberbank-ai/Real-ESRGAN/resolve/main/RealESRGAN_x2.pth",
+        "description": "Native 2x model for rapid inference and lower memory usage.",
+        "recommended": False,
+    },
 }
 
+def resolve_model_key(name: str) -> str:
+    """Fuzzy-matches model identifiers or filenames to a known registry key."""
+    if not name:
+        return "4x-UltraSharp"
+    if name in AVAILABLE_MODELS:
+        return name
+    name_clean = name.strip().lower().replace("_", "").replace("-", "").replace(" ", "")
+    if "ultra" in name_clean:
+        return "4x-UltraSharp"
+    if "remacri" in name_clean:
+        return "4x_Remacri"
+    if "nmkd" in name_clean or "superscale" in name_clean:
+        return "4x_NMKD-Superscale"
+    if "anime" in name_clean:
+        return "4x-AnimeSharp"
+    if "x2" in name_clean:
+        return "RealESRGAN_x2"
+    if "x4" in name_clean or "realesrgan" in name_clean:
+        return "RealESRGAN_x4plus"
+    for k in AVAILABLE_MODELS:
+        if k.lower() == name.lower():
+            return k
+    return name
+
+def list_available_models(weights_dir: str = "weights") -> list:
+    """Lists registered models + any extra .pth/.pt files found in weights_dir."""
+    results = []
+    known_filenames = set()
+    for key, info in AVAILABLE_MODELS.items():
+        fname = info["filename"]
+        known_filenames.add(fname)
+        is_dl = os.path.exists(os.path.join(weights_dir, fname)) and os.path.getsize(os.path.join(weights_dir, fname)) > 1000000
+        results.append({
+            "id": key,
+            "name": info["display_name"],
+            "native_scale": info["native_scale"],
+            "description": info["description"],
+            "recommended": info.get("recommended", False),
+            "downloaded": is_dl
+        })
+    if os.path.isdir(weights_dir):
+        for fname in sorted(os.listdir(weights_dir)):
+            if fname.endswith((".pth", ".pt")) and fname not in known_filenames:
+                results.append({
+                    "id": fname,
+                    "name": f"{fname} (Custom Model)",
+                    "native_scale": 4,
+                    "description": "Locally detected custom RRDBNet weights.",
+                    "recommended": False,
+                    "downloaded": True
+                })
+    return results
+
+def convert_rrdb_state_dict(state_dict: dict) -> dict:
+    """Standardizes state dict keys across modern and legacy ESRGAN / BasicSR naming formats."""
+    new_sd = {}
+    for k, v in state_dict.items():
+        k_clean = k
+        if k_clean.startswith("model."):
+            k_clean = k_clean[6:]
+        elif k_clean.startswith("module."):
+            k_clean = k_clean[7:]
+
+        if k_clean.startswith("0."):
+            new_k = "conv_first." + k_clean[2:]
+        elif k_clean.startswith("1.sub."):
+            sub_part = k_clean[6:]
+            parts = sub_part.split(".", 1)
+            idx = int(parts[0])
+            rest = parts[1]
+            if idx == 23:
+                new_k = "conv_body." + rest
+            else:
+                new_k = f"body.{idx}.{rest.replace('.0.', '.').lower()}"
+        elif k_clean.startswith("3."):
+            new_k = "conv_up1." + k_clean[2:]
+        elif k_clean.startswith("6."):
+            new_k = "conv_up2." + k_clean[2:]
+        elif k_clean.startswith("8."):
+            new_k = "conv_hr." + k_clean[2:]
+        elif k_clean.startswith("10."):
+            new_k = "conv_last." + k_clean[3:]
+        else:
+            new_k = k_clean
+        new_sd[new_k] = v
+    return new_sd
+
 class RealESRGANUpscaler:
-    def __init__(self, scale: int = 2, device_pref: str = "auto", weights_dir: str = "weights"):
+    def __init__(
+        self,
+        model_name: str = "4x-UltraSharp",
+        scale: int = 2,
+        device_pref: str = "auto",
+        weights_dir: str = "weights"
+    ):
+        self.raw_model_name = model_name or "4x-UltraSharp"
+        self.model_key = resolve_model_key(self.raw_model_name)
         self.scale = scale
         self.device = get_torch_device(device_pref)
         self.weights_dir = weights_dir
         os.makedirs(self.weights_dir, exist_ok=True)
         self.model = None
 
+        if self.model_key in AVAILABLE_MODELS:
+            self.model_info = AVAILABLE_MODELS[self.model_key]
+            self.native_scale = self.model_info.get("native_scale", 4)
+            self.filename = self.model_info["filename"]
+            self.download_url = self.model_info.get("url")
+        else:
+            # Custom file directly supplied
+            self.filename = self.raw_model_name if self.raw_model_name.endswith((".pth", ".pt")) else f"{self.raw_model_name}.pth"
+            self.native_scale = 4
+            self.download_url = None
+            self.model_info = {
+                "id": self.filename,
+                "name": self.filename,
+                "display_name": self.filename,
+                "native_scale": self.native_scale,
+                "filename": self.filename,
+                "url": None,
+                "description": "Custom local weights.",
+                "recommended": False
+            }
+
     def _download_weights(self, weights_path: str):
-        url = HF_URLS.get(self.scale)
-        if not url:
-            raise ValueError(f"No pretrained weights available for scale {self.scale}")
-        print(f"Downloading Real-ESRGAN x{self.scale} weights to {weights_path}...")
-        resp = requests.get(url, stream=True, timeout=60)
+        if not self.download_url:
+            raise FileNotFoundError(
+                f"Model weights file '{self.filename}' was not found in '{self.weights_dir}' "
+                "and no download URL is known for this custom model."
+            )
+        print(f"Downloading model '{self.model_key}' ({self.filename}) to {weights_path}...")
+        resp = requests.get(self.download_url, stream=True, timeout=120)
         resp.raise_for_status()
         with open(weights_path, "wb") as f:
             for chunk in resp.iter_content(chunk_size=1024 * 1024):
                 if chunk:
                     f.write(chunk)
-        print("Model weights successfully downloaded.")
+        print(f"Model weights '{self.filename}' successfully downloaded.")
 
     def load(self):
         if self.model is not None:
             return
-        weights_path = os.path.join(self.weights_dir, f"RealESRGAN_x{self.scale}.pth")
+        weights_path = os.path.join(self.weights_dir, self.filename)
         if not os.path.exists(weights_path) or os.path.getsize(weights_path) < 1000000:
             self._download_weights(weights_path)
 
-        print(f"Loading Real-ESRGAN x{self.scale} model onto device '{self.device}'...")
-        net = RRDBNet(num_in_ch=3, num_out_ch=3, scale=self.scale, num_feat=64, num_block=23, num_grow_ch=32)
+        print(f"Loading '{self.model_key}' (native x{self.native_scale}) onto device '{self.device}'...")
+        net = RRDBNet(
+            num_in_ch=3,
+            num_out_ch=3,
+            scale=self.native_scale,
+            num_feat=64,
+            num_block=23,
+            num_grow_ch=32
+        )
         loadnet = torch.load(weights_path, map_location=self.device, weights_only=False)
-        if "params" in loadnet:
-            net.load_state_dict(loadnet["params"], strict=True)
-        elif "params_ema" in loadnet:
-            net.load_state_dict(loadnet["params_ema"], strict=True)
-        else:
-            net.load_state_dict(loadnet, strict=True)
+        raw_sd = loadnet.get("params_ema", loadnet.get("params", loadnet.get("model", loadnet)))
+        mapped_sd = convert_rrdb_state_dict(raw_sd)
+        net.load_state_dict(mapped_sd, strict=True)
 
         net.eval()
         net.to(self.device)
         self.model = net
 
-    def predict(self, lr_image: Image.Image, batch_size: int = 4, patch_size: int = 192, padding: int = 24, pad_size: int = 15) -> Image.Image:
+    def predict(
+        self,
+        lr_image: Image.Image,
+        batch_size: int = 4,
+        patch_size: int = 192,
+        padding: int = 24,
+        pad_size: int = 15
+    ) -> Image.Image:
         self.load()
 
         # Check for transparency / alpha channel
@@ -225,18 +412,24 @@ class RealESRGANUpscaler:
             res = torch.cat(res_list, dim=0)
 
         sr_image = res.permute((0, 2, 3, 1)).clamp_(0, 1).numpy()
-        padded_size_scaled = tuple(np.multiply(p_shape[0:2], self.scale)) + (3,)
-        scaled_image_shape = tuple(np.multiply(lr_padded.shape[0:2], self.scale)) + (3,)
+        padded_size_scaled = tuple(np.multiply(p_shape[0:2], self.native_scale)) + (3,)
+        scaled_image_shape = tuple(np.multiply(lr_padded.shape[0:2], self.native_scale)) + (3,)
         
         stitched = stitch_patches(
             sr_image,
             padded_image_shape=padded_size_scaled,
             target_shape=scaled_image_shape,
-            padding_size=padding * self.scale
+            padding_size=padding * self.native_scale
         )
         sr_u8 = (stitched * 255.0).clip(0, 255).astype(np.uint8)
-        unpadded = unpad_image(sr_u8, pad_size * self.scale)
+        unpadded = unpad_image(sr_u8, pad_size * self.native_scale)
         sr_img = Image.fromarray(unpadded)
+
+        # Resample to target scale if target scale differs from model's native scale (e.g. 4x model -> 2x for 600 DPI)
+        if self.scale != self.native_scale:
+            target_w = int(round(lr_image.width * self.scale))
+            target_h = int(round(lr_image.height * self.scale))
+            sr_img = sr_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
         # Reattach scaled alpha channel to preserve transparent corners
         if alpha_channel is not None:

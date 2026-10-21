@@ -300,38 +300,73 @@ def process_custom_cardback(
 
         current_ratio = img.width / img.height
 
+        check_ratio = getattr(config, "custom_back_check_ratio", True)
+        allow_upscale = getattr(config, "custom_back_upscale", True)
+        allow_bleed = getattr(config, "custom_back_add_bleed", True)
+
         # Check if the image is already MPC-ready with full bleed included
         is_already_bled = abs(current_ratio - target_bleed_ratio) < 0.02
 
-        if is_already_bled:
-            # Image already includes bleed: scale directly to target_w_px x target_h_px
-            if img.width < target_w_px:
-                if upscaler is not None and getattr(config, "mode", "") == "upscaled":
-                    try:
-                        img = upscaler.predict(img)
-                    except Exception:
-                        pass
+        # Case A: Bleed is disabled by user toggle
+        if not allow_bleed:
+            # When bleed addition is turned off, the card back is sized directly to target canvas
+            if check_ratio:
+                req_ratio = target_bleed_ratio
+                if current_ratio > req_ratio:
+                    new_w = int(round(img.height * req_ratio))
+                    left = (img.width - new_w) // 2
+                    img = img.crop((left, 0, left + new_w, img.height))
+                elif current_ratio < req_ratio:
+                    new_h = int(round(img.width / req_ratio))
+                    top = (img.height - new_h) // 2
+                    img = img.crop((0, top, img.width, top + new_h))
+
+            if allow_upscale and img.width < target_w_px and upscaler is not None and getattr(config, "mode", "") == "upscaled":
+                try:
+                    img = upscaler.predict(img)
+                except Exception:
+                    pass
+
+            resample_filter = Image.Resampling.LANCZOS if allow_upscale else Image.Resampling.BILINEAR
             if img.size != (target_w_px, target_h_px):
-                img = img.resize((target_w_px, target_h_px), Image.Resampling.LANCZOS)
+                img = img.resize((target_w_px, target_h_px), resample_filter)
 
             os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
             img.save(output_path, "JPEG", dpi=(dpi, dpi), quality=95)
             return output_path
 
-        # 2. Image does not have bleed yet: center-crop to standard cut aspect ratio (63:88)
-        if current_ratio > target_cut_ratio:
-            # Too wide: crop left & right
-            new_w = int(round(img.height * target_cut_ratio))
-            left = (img.width - new_w) // 2
-            img = img.crop((left, 0, left + new_w, img.height))
-        elif current_ratio < target_cut_ratio:
-            # Too tall: crop top & bottom
-            new_h = int(round(img.width / target_cut_ratio))
-            top = (img.height - new_h) // 2
-            img = img.crop((0, top, img.width, top + new_h))
+        # Case B: Bleed is enabled
+        if is_already_bled:
+            # Image already includes bleed: scale directly to target_w_px x target_h_px
+            if allow_upscale and img.width < target_w_px:
+                if upscaler is not None and getattr(config, "mode", "") == "upscaled":
+                    try:
+                        img = upscaler.predict(img)
+                    except Exception:
+                        pass
+            resample_filter = Image.Resampling.LANCZOS if allow_upscale else Image.Resampling.BILINEAR
+            if img.size != (target_w_px, target_h_px):
+                img = img.resize((target_w_px, target_h_px), resample_filter)
+
+            os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+            img.save(output_path, "JPEG", dpi=(dpi, dpi), quality=95)
+            return output_path
+
+        # 2. Image does not have bleed yet: center-crop to standard cut aspect ratio (63:88) if check_ratio is True
+        if check_ratio:
+            if current_ratio > target_cut_ratio:
+                # Too wide: crop left & right
+                new_w = int(round(img.height * target_cut_ratio))
+                left = (img.width - new_w) // 2
+                img = img.crop((left, 0, left + new_w, img.height))
+            elif current_ratio < target_cut_ratio:
+                # Too tall: crop top & bottom
+                new_h = int(round(img.width / target_cut_ratio))
+                top = (img.height - new_h) // 2
+                img = img.crop((0, top, img.width, top + new_h))
 
         # 3. Resolution scaling
-        if img.width < cut_w_px:
+        if allow_upscale and img.width < cut_w_px:
             if upscaler is not None and getattr(config, "mode", "") == "upscaled":
                 try:
                     img = upscaler.predict(img)
@@ -342,6 +377,8 @@ def process_custom_cardback(
         elif img.width > int(cut_w_px * 1.4):
             # Downscale overly high-res images to exact cut dimensions
             img = img.resize((cut_w_px, cut_h_px), Image.Resampling.LANCZOS)
+        elif not allow_upscale and img.size != (cut_w_px, cut_h_px):
+            img = img.resize((cut_w_px, cut_h_px), Image.Resampling.BILINEAR)
 
         # 4. Add intelligent bleed to expand to target_w_px x target_h_px
         return add_intelligent_bleed(img, output_path, config, dpi=dpi)

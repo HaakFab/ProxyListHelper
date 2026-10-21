@@ -48,7 +48,42 @@ def download_image_safe(url: str, dest_path: str, retries: int = 3) -> bool:
                 print(f"  [!] Failed to download image from {url}: {e}")
             time.sleep(1)
 
+def is_exact_or_front_face_match(candidate_card: dict, target_name: str) -> bool:
+    """
+    Checks if a candidate card object has an identical name to target_name.
+    Discards cards where the target card is merely a secondary face / prepared spell
+    (e.g. discarding 'Grave Researcher // Reanimate' when searching for 'Reanimate').
+    """
+    if not candidate_card or not target_name:
+        return False
+
+    def _norm(s: str) -> str:
+        s = s.strip().lower()
+        s = s.replace("’", "'").replace("‘", "'").replace("—", "-").replace("–", "-")
+        return s
+
+    target_norm = _norm(target_name)
+    target_primary = _norm(target_name.split(" // ")[0].split(" / ")[0])
+
+    card_name = _norm(candidate_card.get("name") or "")
+
+    # 1. Exact full name match (e.g. 'Reanimate' == 'Reanimate' or 'Fire // Ice' == 'Fire // Ice')
+    if card_name == target_norm or card_name == target_primary:
+        return True
+
+    # 2. Front face exact match for multi-faced cards
+    faces = candidate_card.get("card_faces") or []
+    if faces and len(faces) > 0:
+        front_face_name = _norm(faces[0].get("name") or "")
+        if front_face_name == target_norm or front_face_name == target_primary:
+            return True
+
+    # 3. Split card full name starts with primary target face (e.g. 'Fire // Ice' when input was 'Fire')
+    if card_name.startswith(f"{target_primary} //") or card_name.startswith(f"{target_primary} /"):
+        return True
+
     return False
+
 
 class ScryfallClient:
     def __init__(self, cache_dir: str):
@@ -77,7 +112,9 @@ class ScryfallClient:
             if r.status_code == 200:
                 data = r.json()
                 if "data" in data and len(data["data"]) > 0:
-                    return data["data"][0]
+                    for cand in data["data"]:
+                        if is_exact_or_front_face_match(cand, clean_name):
+                            return cand
         except Exception:
             pass
 
@@ -88,7 +125,7 @@ class ScryfallClient:
             r = requests.get(url, headers=API_HEADERS, timeout=15)
             if r.status_code == 200:
                 data = r.json()
-                if "image_uris" in data or "card_faces" in data:
+                if is_exact_or_front_face_match(data, clean_name) and ("image_uris" in data or "card_faces" in data):
                     return data
         except Exception:
             pass

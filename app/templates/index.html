@@ -98,8 +98,12 @@
           {{ t("include_considering") }}
         </label>
         <label class="checkbox-label">
-          <input type="checkbox" id="include_tokens_0" name="include_tokens_0">
+          <input type="checkbox" id="include_tokens_0" name="include_tokens_0" onchange="handleIncludeTokensToggle(0)">
           {{ t("include_tokens") }}
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="double_sided_tokens_0" name="double_sided_tokens_0" onchange="handleDoubleSidedTokensToggle(0)">
+          {{ t("double_sided_tokens") }}
         </label>
         <label class="checkbox-label">
           <input type="checkbox" id="include_stickers_0" name="include_stickers_0">
@@ -140,7 +144,7 @@
 
   <!-- Dynamic Actions -->
   <div style="margin-bottom: 24px;">
-    <button type="button" class="btn btn-secondary btn-block" onclick="addDeckForm()">
+    <button type="button" class="btn btn-add-deck btn-block" onclick="addDeckForm()">
       [+ {{ t("add_another_deck") }}]
     </button>
   </div>

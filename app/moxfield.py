@@ -189,9 +189,23 @@ def extract_deck_cards(
 def parse_pasted_text(text: str) -> List[dict]:
     """Parses standard Moxfield pasted text lines."""
     cards: List[dict] = []
+    current_board = "mainboard"
     for raw_line in text.splitlines():
         line = raw_line.strip()
-        if not line or is_section_header(line):
+        if not line:
+            continue
+        if is_section_header(line):
+            low = line.lower()
+            if "token" in low:
+                current_board = "tokens"
+            elif "sideboard" in low:
+                current_board = "sideboard"
+            elif "maybeboard" in low or "considering" in low:
+                current_board = "maybeboard"
+            elif "sticker" in low:
+                current_board = "stickers"
+            elif "main" in low or "commander" in low:
+                current_board = "mainboard"
             continue
         parsed = parse_line(line)
         if parsed:
@@ -206,6 +220,6 @@ def parse_pasted_text(text: str) -> List[dict]:
                 "back_cn": parsed.back_collector_number,
                 "is_foil": is_foil,
                 "promo_types": [],
-                "board": "mainboard",
+                "board": current_board,
             })
     return cards

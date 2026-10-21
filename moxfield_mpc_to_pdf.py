@@ -116,15 +116,22 @@ def process_card_asset(
         scale = config.upscale_factor
         dpi = 300 * scale # e.g. 600 DPI for 2x
         os.makedirs(config.upscaled_cache_dir, exist_ok=True)
+        model_tag = getattr(config, "upscale_model", "4x-UltraSharp").lower().replace("-", "_").replace(" ", "_")
 
         # 1. Front face
         front_bleed = os.path.join(
             config.upscaled_cache_dir,
-            f"{key}_front_x{scale}{copyright_suffix}_bleed.jpg"
+            f"{key}_front_{model_tag}_x{scale}{copyright_suffix}_bleed.jpg"
         )
         if not os.path.exists(front_bleed) or config.reset_bleed_cache:
             if config.reset_bleed_cache or not reuse_legacy_png_bleed_as_jpeg(front_bleed):
-                cached_sr = os.path.join(config.upscaled_cache_dir, f"{key}_front_x{scale}.png")
+                cached_sr = os.path.join(config.upscaled_cache_dir, f"{key}_front_{model_tag}_x{scale}.png")
+                # Fallback to legacy un-tagged cache file if present and using baseline RealESRGAN
+                if not os.path.exists(cached_sr) and ("x2" in model_tag or "realesrgan" in model_tag):
+                    legacy_sr = os.path.join(config.upscaled_cache_dir, f"{key}_front_x{scale}.png")
+                    if os.path.exists(legacy_sr):
+                        cached_sr = legacy_sr
+
                 if os.path.exists(cached_sr):
                     sr_img = Image.open(cached_sr)
                 else:
@@ -147,11 +154,16 @@ def process_card_asset(
         if has_scryfall_back:
             back_bleed = os.path.join(
                 config.upscaled_cache_dir,
-                f"{key}_back_x{scale}{copyright_suffix}_bleed.jpg"
+                f"{key}_back_{model_tag}_x{scale}{copyright_suffix}_bleed.jpg"
             )
             if not os.path.exists(back_bleed) or config.reset_bleed_cache:
                 if config.reset_bleed_cache or not reuse_legacy_png_bleed_as_jpeg(back_bleed):
-                    cached_sr_back = os.path.join(config.upscaled_cache_dir, f"{key}_back_x{scale}.png")
+                    cached_sr_back = os.path.join(config.upscaled_cache_dir, f"{key}_back_{model_tag}_x{scale}.png")
+                    if not os.path.exists(cached_sr_back) and ("x2" in model_tag or "realesrgan" in model_tag):
+                        legacy_sr_back = os.path.join(config.upscaled_cache_dir, f"{key}_back_x{scale}.png")
+                        if os.path.exists(legacy_sr_back):
+                            cached_sr_back = legacy_sr_back
+
                     if os.path.exists(cached_sr_back):
                         sr_back_img = Image.open(cached_sr_back)
                     else:
@@ -366,9 +378,10 @@ def run_pipeline(
     upscaler = None
     if config.mode == "upscaled":
         upscaler = RealESRGANUpscaler(
+            model_name=getattr(config, "upscale_model", "4x-UltraSharp"),
             scale=config.upscale_factor,
             device_pref=config.device,
-            weights_dir=config.weights_dir
+            weights_dir=getattr(config, "weights_dir", "weights")
         )
 
     # 6. Progress UI Execution
@@ -432,6 +445,30 @@ def run_pipeline(
         deck_items = []
         unprintable: List[Tuple[str, str, CardEntry]] = []
 
+        # Determine ordering ID for each deck ([SuborderNumber//ListNumber], e.g. [1//4])
+        deck_order_map: Dict[int, str] = {}
+        if getattr(config, "enable_suborders", False):
+            from proxy_parser.grouping import optimize_suborders
+            temp_items = [
+                {
+                    "deck": d,
+                    "card_pairs": [None] * sum(c.qty for c in d.cards),
+                    "dividers": [None, None] if getattr(config, "two_divider_cards", True) else [None]
+                }
+                for d in decks
+            ]
+            batches = optimize_suborders(
+                temp_items,
+                cards_per_sheet=getattr(config, "cards_per_sheet", 18),
+                target_suborder_cards=getattr(config, "target_suborder_cards", 1440)
+            )
+            for b in batches:
+                for l_idx, it in enumerate(b.deck_items, start=1):
+                    deck_order_map[id(it["deck"])] = f"[{b.batch_index}//{l_idx}]"
+        else:
+            for l_idx, d in enumerate(decks, start=1):
+                deck_order_map[id(d)] = f"[1//{l_idx}]"
+
         for d_idx, deck in enumerate(decks, start=1):
             if is_cancelled and is_cancelled():
                 log("[yellow]Operation cancelled by user.[/yellow]")
@@ -441,6 +478,7 @@ def run_pipeline(
                 pct = (d_idx / max(len(decks), 1)) * 100.0
                 progress_callback("dividers", d_idx, len(decks), pct, f"Generating divider cards ({d_idx}/{len(decks)}): {deck.label}")
 
+            order_id = deck_order_map.get(id(deck), f"[1//{d_idx}]")
             card_count = sum(card.qty for card in deck.cards)
             if getattr(config, "two_divider_cards", True):
                 dividers = generate_divider_cards(
@@ -449,14 +487,16 @@ def run_pipeline(
                     card_count=card_count,
                     cache_dir=config.cache_dir,
                     config=config,
-                    dpi=target_dpi
+                    dpi=target_dpi,
+                    order_id=order_id
                 )
             else:
                 div_front, div_back = generate_divider_card(
                     label=deck.label,
                     cache_dir=config.cache_dir,
                     config=config,
-                    dpi=target_dpi
+                    dpi=target_dpi,
+                    order_id=order_id
                 )
                 dividers = [(div_front, div_back)]
 
@@ -629,6 +669,20 @@ def run_pipeline(
             "Fix the decklist or the Scryfall printing and re-run before printing.[/yellow]"
         )
 
+    serializable_unprintable = [
+        {
+            "person": person,
+            "label": label,
+            "name": getattr(card, "name", str(card)),
+            "qty": getattr(card, "qty", 1),
+            "set": getattr(card, "set", ""),
+            "cn": getattr(card, "cn", ""),
+            "is_custom_double_sided": getattr(card, "is_custom_double_sided", False),
+            "back_name": getattr(card, "back_name", "")
+        }
+        for person, label, card in unprintable
+    ]
+
     if progress_callback:
         progress_callback("done", total_cards_for_pdf, total_cards_for_pdf, 100.0, "All PDF documents compiled successfully!")
 
@@ -638,7 +692,7 @@ def run_pipeline(
         "csv_path": csv_output_path,
         "total_cards": total_cards_across_decks,
         "unique_cards": len(unique_cards),
-        "unprintable": unprintable,
+        "unprintable": serializable_unprintable,
         "decks": len(decks),
     }
 

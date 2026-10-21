@@ -580,6 +580,32 @@ body.cutting-mat-workspace, body {
   background: #E8E3DA;
 }
 
+/* Standout "Add Another Deck" Button */
+.btn-add-deck {
+  background: #FFFFFF;
+  color: var(--text-dark);
+  border: 2px solid var(--border-ink);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 16px 24px;
+  box-shadow: 4px 4px 0px var(--border-ink);
+  transition: all var(--transition-snap);
+}
+
+.btn-add-deck:hover {
+  background: var(--accent-acid);
+  color: var(--text-dark);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px var(--border-ink);
+}
+
+.btn-add-deck:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px var(--border-ink);
+}
+
 /* Destructive / Risograph Orange-Red Button */
 .btn-danger {
   background: var(--accent-riso);
@@ -1961,6 +1987,19 @@ body.cutting-mat-workspace, body {
 .dark-void .btn-secondary:hover {
   background: #0E0E10 !important;
   border-color: #555555 !important;
+}
+
+.dark-void .btn-add-deck {
+  background: #111113 !important;
+  color: #FFFFFF !important;
+  border: 2px solid var(--accent-acid) !important;
+  box-shadow: 4px 4px 0px rgba(204, 255, 0, 0.4) !important;
+}
+
+.dark-void .btn-add-deck:hover {
+  background: var(--accent-acid) !important;
+  color: #000000 !important;
+  box-shadow: 6px 6px 0px #000000 !important;
 }
 
 /* Success Voucher Container */

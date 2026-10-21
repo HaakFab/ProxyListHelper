@@ -39,7 +39,8 @@ def generate_divider_cards(
     config: Optional[AppConfig] = None,
     dpi: int = 300,
     details: Optional[Dict[str, Any]] = None,
-    label: Optional[str] = None
+    label: Optional[str] = None,
+    order_id: str = "[1//1]"
 ) -> Tuple[Tuple[str, str], Tuple[str, str]]:
     """
     Generates TWO high-visibility divider cards with alternating full-bleed vertical stripes
@@ -74,6 +75,7 @@ def generate_divider_cards(
 
     safe_person = re.sub(r'[^a-zA-Z0-9]', '_', person)
     safe_label = re.sub(r'[^a-zA-Z0-9]', '_', deck_label)
+    safe_order = re.sub(r'[^a-zA-Z0-9]', '_', order_id or "")
     dim_str = f"{config.target_card_width_mm:.0f}x{config.target_card_height_mm:.0f}mm"
 
     # Shared back image: Full-bleed vertical stripes
@@ -85,9 +87,9 @@ def generate_divider_cards(
         back_img.save(shared_back_path, "PNG", dpi=(dpi, dpi))
 
     # =========================================================================
-    # CARD 1: Identity Divider (Large Person Name, Small Deck Name)
+    # CARD 1: Identity Divider (Large Person Name, Small Deck Name, Order ID)
     # =========================================================================
-    front1_path = os.path.join(cache_dir, f"divider1_{safe_person}_{safe_label}_{dim_str}_{dpi}dpi.png")
+    front1_path = os.path.join(cache_dir, f"divider1_{safe_person}_{safe_label}_{safe_order}_{dim_str}_{dpi}dpi.png")
     if not os.path.exists(front1_path) or config.reset_bleed_cache:
         img1 = Image.new("RGB", (width_px, height_px), color=(255, 255, 255))
         d1 = ImageDraw.Draw(img1)
@@ -106,6 +108,12 @@ def generate_divider_cards(
 
         tag_font = _get_font(font_mono_candidates, int(round(22 * scale)))
         d1.text((bx + int(32 * scale), by + int(36 * scale)), "[ DECK OWNER & SEPARATOR ]", fill=(110, 110, 110), font=tag_font)
+
+        # Ordering ID top right: e.g. [1//4]
+        if order_id:
+            order_tb = d1.textbbox((0, 0), order_id, font=tag_font)
+            order_w = order_tb[2] - order_tb[0]
+            d1.text((bx + box_w - int(32 * scale) - order_w, by + int(36 * scale)), order_id, fill=(0, 105, 255), font=tag_font)
 
         # Dynamic Font Scaling for Person Name (Large)
         person_font_size = int(round(86 * scale))
@@ -132,23 +140,29 @@ def generate_divider_cards(
 
         d1.text((bx + int(32 * scale), by + int(270 * scale)), deck_text, fill=(235, 15, 40), font=deck_font)
 
-        # Bottom sub badge
+        # Bottom sub badge: count on left, order ID on right
         count_tag = f"TOTAL: {card_count} CARDS"
         d1.text((bx + int(32 * scale), by + int(380 * scale)), count_tag, fill=(0, 105, 255), font=tag_font)
+
+        if order_id:
+            sub_tag = f"ORDER: {order_id}"
+            sub_tb = d1.textbbox((0, 0), sub_tag, font=tag_font)
+            sub_w = sub_tb[2] - sub_tb[0]
+            d1.text((bx + box_w - int(32 * scale) - sub_w, by + int(380 * scale)), sub_tag, fill=(110, 110, 110), font=tag_font)
 
         img1.save(front1_path, "PNG", dpi=(dpi, dpi))
 
     # =========================================================================
     # CARD 2: Details Divider (Number of cards, very small print details)
     # =========================================================================
-    front2_path = os.path.join(cache_dir, f"divider2_{safe_person}_{safe_label}_{dim_str}_{dpi}dpi.png")
+    front2_path = os.path.join(cache_dir, f"divider2_{safe_person}_{safe_label}_{safe_order}_{dim_str}_{dpi}dpi.png")
     if not os.path.exists(front2_path) or config.reset_bleed_cache:
         img2 = Image.new("RGB", (width_px, height_px), color=(255, 255, 255))
         d2 = ImageDraw.Draw(img2)
         _draw_vertical_stripes(d2, width_px, height_px, scale)
 
         box_w = int(round(660 * scale))
-        box_h = int(round(580 * scale))
+        box_h = int(round(620 * scale))
         bx = (width_px - box_w) // 2
         by = (height_px - box_h) // 2
         shadow = int(round(14 * scale))
@@ -158,28 +172,30 @@ def generate_divider_cards(
         d2.rectangle([(bx, by), (bx + box_w, by + box_h)], fill=(255, 255, 255), outline=(0, 0, 0), width=border)
 
         tag_font = _get_font(font_mono_candidates, int(round(20 * scale)))
-        d2.text((bx + int(32 * scale), by + int(32 * scale)), "[ BATCH PRODUCTION SPECIFICATION ]", fill=(110, 110, 110), font=tag_font)
+        d2.text((bx + int(32 * scale), by + int(30 * scale)), "[ BATCH PRODUCTION SPECIFICATION ]", fill=(110, 110, 110), font=tag_font)
 
         count_font = _get_font(font_bold_candidates, int(round(72 * scale)))
-        d2.text((bx + int(32 * scale), by + int(80 * scale)), f"{card_count} CARDS", fill=(0, 105, 255), font=count_font)
+        d2.text((bx + int(32 * scale), by + int(76 * scale)), f"{card_count} CARDS", fill=(0, 105, 255), font=count_font)
 
         # Thin separator line
         d2.line(
-            [(bx + int(32 * scale), by + int(195 * scale)), (bx + box_w - int(32 * scale), by + int(195 * scale))],
+            [(bx + int(32 * scale), by + int(185 * scale)), (bx + box_w - int(32 * scale), by + int(185 * scale))],
             fill=(220, 220, 220),
             width=int(round(3 * scale))
         )
 
-        detail_title_font = _get_font(font_bold_candidates, int(round(22 * scale)))
-        detail_val_font = _get_font(font_mono_candidates, int(round(18 * scale)))
+        detail_title_font = _get_font(font_bold_candidates, int(round(21 * scale)))
+        detail_val_font = _get_font(font_mono_candidates, int(round(17 * scale)))
 
         now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
         detail_rows = [
             ("Customer / Person:", person),
             ("Deck / List Name:", deck_label),
-            ("Target Cut Dimensions:", f"{config.cut_width_mm:.0f}x{config.cut_height_mm:.0f}mm (+{config.bleed_margin_mm:.0f}mm Bleed -> {config.target_card_width_mm:.0f}x{config.target_card_height_mm:.0f}mm)"),
+            ("Dimensions:", f"{config.cut_width_mm:.0f}x{config.cut_height_mm:.0f}mm (+{config.bleed_margin_mm:.0f}mm Bleed -> {config.target_card_width_mm:.0f}x{config.target_card_height_mm:.0f}mm)"),
             ("Resolution & Mode:", f"{dpi} DPI ({config.mode.upper()})"),
-            ("Imposition Scheme:", f"18 Cards / Sheet (Cut & Stack)"),
+            ("Upscale Model:", getattr(config, "upscale_model", "4x-UltraSharp") if config.mode == "upscaled" else "Direct (No AI)"),
+            ("Imposition Scheme:", f"{getattr(config, 'cards_per_sheet', 18)} Cards / Sheet (Cut & Stack)"),
+            ("Ordering ID:", order_id),
             ("Generation Date:", now_str),
         ]
 
@@ -187,14 +203,14 @@ def generate_divider_cards(
             for k, v in details.items():
                 detail_rows.append((k, str(v)))
 
-        dy = by + int(215 * scale)
-        row_step = int(round(46 * scale))
-        val_offset = int(round(240 * scale))
+        dy = by + int(205 * scale)
+        row_step = int(round(44 * scale))
+        val_offset = int(round(230 * scale))
 
         for title, val in detail_rows:
             d2.text((bx + int(32 * scale), dy), title, fill=(0, 0, 0), font=detail_title_font)
             # Truncate very long value
-            display_val = val if len(val) <= 36 else val[:33] + "..."
+            display_val = val if len(val) <= 38 else val[:35] + "..."
             d2.text((bx + val_offset, dy + int(2 * scale)), display_val, fill=(70, 70, 70), font=detail_val_font)
             dy += row_step
 
@@ -202,7 +218,13 @@ def generate_divider_cards(
 
     return ((front1_path, shared_back_path), (front2_path, shared_back_path))
 
-def generate_divider_card(label: str, cache_dir: str, config: AppConfig, dpi: int = 300) -> Tuple[str, str]:
+def generate_divider_card(
+    label: str,
+    cache_dir: str,
+    config: AppConfig,
+    dpi: int = 300,
+    order_id: str = "[1//1]"
+) -> Tuple[str, str]:
     """
     Backwards-compatible wrapper returning the first divider card.
     """
@@ -212,6 +234,7 @@ def generate_divider_card(label: str, cache_dir: str, config: AppConfig, dpi: in
         card_count=100,
         cache_dir=cache_dir,
         config=config,
-        dpi=dpi
+        dpi=dpi,
+        order_id=order_id
     )
     return cards[0]

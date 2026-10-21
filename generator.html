@@ -126,14 +126,29 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--accent-acid);
-      box-shadow: 0 0 8px var(--accent-acid);
+      background: var(--text-muted);
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
+    }
+
+    .status-dot.idle {
+      background: var(--text-muted);
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
     }
 
     .status-dot.running {
       background: var(--accent-cyan);
       box-shadow: 0 0 10px var(--accent-cyan);
       animation: pulse 1s infinite alternate;
+    }
+
+    .status-dot.completed {
+      background: var(--accent-acid);
+      box-shadow: 0 0 10px var(--accent-acid);
+    }
+
+    .status-dot.error {
+      background: var(--accent-crimson);
+      box-shadow: 0 0 10px var(--accent-crimson);
     }
 
     @keyframes pulse {
@@ -248,16 +263,30 @@
       border-radius: 2px;
     }
 
-    /* Online Sync Bar */
-    .sync-bar {
+    /* Source Selection Grid */
+    .source-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    @media (max-width: 960px) {
+      .source-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .source-card {
       background: #17171A;
       border: 1px dashed var(--border-dark);
       padding: 1rem;
-      display: grid;
-      grid-template-columns: 1.4fr 1fr auto;
-      gap: 1rem;
-      align-items: end;
-      margin-bottom: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      border-radius: 4px;
+      transition: border-color 0.15s ease;
+    }
+    .source-card:hover {
+      border-color: #4a4a55;
     }
 
     .field-group {
@@ -522,6 +551,13 @@
       border-color: var(--border-ink);
     }
 
+    .step-item#stepDone.done .step-icon {
+      background: var(--accent-acid);
+      color: var(--text-dark);
+      border-color: var(--border-ink);
+      box-shadow: 2px 2px 0px #000;
+    }
+
     .step-label {
       font-family: var(--font-mono);
       font-size: 0.65rem;
@@ -530,6 +566,8 @@
     }
 
     .step-item.active .step-label { color: var(--accent-acid); font-weight: 700; }
+    .step-item.done .step-label { color: var(--accent-cyan); font-weight: 700; }
+    .step-item#stepDone.done .step-label { color: var(--accent-acid); font-weight: 700; }
 
     .progress-bar-wrap {
       height: 24px;
@@ -661,23 +699,65 @@
           <div style="display: flex; gap: 0.5rem;">
             <button class="btn btn-dark btn-sm" onclick="selectAllDecks(true)">Select All</button>
             <button class="btn btn-dark btn-sm" onclick="selectAllDecks(false)">Deselect</button>
-            <button class="btn btn-dark btn-sm" onclick="loadLocalDecks()">↻ Refresh Local</button>
+            <button class="btn btn-dark btn-sm" onclick="scanCustomDirectory()">↻ Rescan</button>
           </div>
         </div>
 
-        <!-- Sync Bar for Render / Online Portal -->
-        <div class="sync-bar">
-          <div class="field-group">
-            <label>Remote Portal URL</label>
-            <input type="text" id="portalUrl" class="input-text" value="https://proxy-list-helper.onrender.com" placeholder="https://proxy-list-helper.onrender.com">
+        <!-- Source Selection Grid: Local Folder / ZIP vs Cloud Sync -->
+        <div class="source-grid">
+          <!-- Card A: Local Directory & Old Server Export ZIPs -->
+          <div class="source-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--accent-acid);">
+                📁 Local Folder & Archive Importer
+              </span>
+            </div>
+            <div class="field-group">
+              <label>Directory Path (input / custom / unzipped export)</label>
+              <input type="text" id="localDirPath" class="input-text" value="input" placeholder="e.g. input or /Users/.../export_folder" onchange="scanCustomDirectory()">
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: auto;">
+              <button class="btn btn-paper btn-sm" onclick="browseLocalDirectory()">
+                📂 Browse Folder...
+              </button>
+              <button class="btn btn-dark btn-sm" onclick="browseAndImportZip()">
+                📦 Import Server ZIP...
+              </button>
+              <button class="btn btn-dark btn-sm" onclick="scanCustomDirectory()">
+                🔄 Scan
+              </button>
+            </div>
           </div>
-          <div class="field-group">
-            <label>Admin Password</label>
-            <input type="password" id="adminPassword" class="input-text" placeholder="Enter password...">
+
+          <!-- Card B: Cloud Portal Sync (Render) -->
+          <div class="source-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--accent-cyan);">
+                ☁ Cloud Sync (Render / Live Portal)
+              </span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 0.5rem;">
+              <div class="field-group">
+                <label>Portal URL</label>
+                <input type="text" id="portalUrl" class="input-text" value="https://proxy-list-helper.onrender.com" onchange="savePortalSettings()">
+              </div>
+              <div class="field-group">
+                <label>Admin Password</label>
+                <div style="display: flex; gap: 0.25rem;">
+                  <input type="password" id="adminPassword" class="input-text" placeholder="ADMIN_PASSWORD" onchange="savePortalSettings()">
+                  <button type="button" id="btnTogglePassword" class="btn btn-dark btn-sm" style="padding: 0.25rem 0.6rem;" onclick="togglePasswordVisibility()">👁</button>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
+              <span style="font-size: 0.68rem; color: var(--text-muted);">
+                Matches ADMIN_PASSWORD in Render env
+              </span>
+              <button class="btn btn-cyan btn-sm" onclick="pullOnlineDecks()">
+                ☁ Fetch Orders
+              </button>
+            </div>
           </div>
-          <button class="btn btn-cyan btn-sm" onclick="pullOnlineDecks()">
-            ☁ Fetch Orders
-          </button>
         </div>
 
         <!-- Table Checklist -->
@@ -745,15 +825,27 @@
             <div class="field-group" style="margin-bottom: 0.75rem;">
               <label>Processing Mode</label>
               <select id="cfgMode" class="select-input" onchange="onModeChange()">
-                <option value="upscaled">Real-ESRGAN AI (600 DPI Ultra)</option>
+                <option value="upscaled">AI Super-Resolution (600 DPI Ultra)</option>
                 <option value="scryfall">Scryfall Direct (300 DPI Fast)</option>
               </select>
             </div>
+            <div class="field-group" style="margin-bottom: 0.75rem;" id="upscaleModelGroup">
+              <label>AI Upscaling Model</label>
+              <select id="cfgUpscaleModel" class="select-input" onchange="onModelChange()">
+                <option value="4x-UltraSharp">4x-UltraSharp (Fantasy Art & Painting - Recommended)</option>
+                <option value="4x_Remacri">4x-Remacri (Natural Textures & Fine Detail)</option>
+                <option value="4x_NMKD-Superscale">4x-NMKD Superscale (Clean Lines & Text)</option>
+                <option value="4x-AnimeSharp">4x-AnimeSharp (Manga & Cel-Shaded Showcase)</option>
+                <option value="RealESRGAN_x4plus">RealESRGAN x4plus (Original Baseline)</option>
+                <option value="RealESRGAN_x2">RealESRGAN x2 (Fast 2x Baseline)</option>
+              </select>
+              <p id="modelDescription" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.35rem; line-height: 1.35;"></p>
+            </div>
             <div class="field-group" style="margin-bottom: 0.75rem;" id="upscaleScaleGroup">
-              <label>Upscale Scale Factor</label>
+              <label>Output DPI / Scale Factor</label>
               <select id="cfgUpscaleFactor" class="select-input">
-                <option value="2">2x (600 DPI - Recommended)</option>
-                <option value="4">4x (1200 DPI - High VRAM)</option>
+                <option value="2">2x (600 DPI - Recommended for MPC Print)</option>
+                <option value="4">4x (1200 DPI - Ultra-High VRAM)</option>
               </select>
             </div>
             <div class="field-group" style="margin-bottom: 0.75rem;">
@@ -857,6 +949,76 @@
               </select>
             </div>
           </div>
+
+          <!-- Custom Card Backs Card -->
+          <div class="card-config">
+            <h3>🎴 Custom Card Backs</h3>
+            <div class="toggle-row">
+              <div>
+                <strong>Check Aspect Ratio</strong>
+                <p style="font-size: 0.7rem; color: var(--text-muted);">Center-crop non-standard ratios to 63:88 to avoid art distortion</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="cfgCustomBackCheckRatio" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="toggle-row" style="margin-top: 0.6rem;">
+              <div>
+                <strong>Upscale Low-Res Backs</strong>
+                <p style="font-size: 0.7rem; color: var(--text-muted);">Upscale custom card backs to match 300/600 print DPI</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="cfgCustomBackUpscale" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="toggle-row" style="margin-top: 0.6rem;">
+              <div>
+                <strong>Add Bleed Margin</strong>
+                <p style="font-size: 0.7rem; color: var(--text-muted);">Intelligently add 3mm outer bleed border for cutting safety</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="cfgCustomBackAddBleed" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Cache & Storage Location Card -->
+          <div class="card-config">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <h3 style="margin-bottom: 0;">💾 Storage & Cache Location</h3>
+            </div>
+            <p style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+              Store Scryfall downloads and large upscaled images (40GB+) on an external drive to preserve internal SSD space.
+            </p>
+            <div class="field-group" style="margin-bottom: 0.5rem;">
+              <label>Cache Directory Path</label>
+              <input type="text" id="cfgCacheDir" class="input-text" value="scryfall_cache" placeholder="e.g. /Volumes/ExternalDrive/MTG_Cache" onchange="onCacheDirChanged()">
+            </div>
+            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+              <button class="btn btn-paper btn-sm" onclick="browseCacheDirectory()">
+                📂 Browse Folder...
+              </button>
+              <button class="btn btn-dark btn-sm" onclick="resetCacheDirToDefault()">
+                ↺ Local Default
+              </button>
+              <button class="btn btn-dark btn-sm" onclick="openCacheFolder()">
+                📁 Open in Finder
+              </button>
+            </div>
+            <div id="cacheStatsBox" style="background: #111; border: 1px solid var(--border-dark); padding: 0.6rem; font-family: var(--font-mono); font-size: 0.68rem; line-height: 1.4;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 0.2rem;">
+                <span style="color: var(--text-muted);">Cache Size:</span>
+                <span id="cacheSizeText" style="color: var(--accent-cyan); font-weight: 700;">Loading...</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);">Volume Free Space:</span>
+                <span id="cacheFreeText" style="color: var(--accent-acid); font-weight: 700;">Checking...</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>
@@ -879,6 +1041,17 @@
           ✕ Cancel Pipeline
         </button>
 
+        <!-- Error Card -->
+        <div id="errorCard" class="card-config" style="display: none; border: 2px solid var(--accent-riso); background: #2A1115; margin-bottom: 1.25rem; padding: 0.85rem;">
+          <h4 style="color: var(--accent-riso); margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; text-transform: uppercase;">
+            <span>⚠️</span> Pipeline Execution Error
+          </h4>
+          <p id="errorMessage" style="font-family: var(--font-mono); font-size: 0.72rem; color: #ff9999; margin-bottom: 0.6rem; word-break: break-word; line-height: 1.4;"></p>
+          <button class="btn btn-dark btn-sm" style="width: 100%; justify-content: center; font-size: 0.7rem;" onclick="dismissError()">
+            Dismiss Alert
+          </button>
+        </div>
+
         <!-- Stepper -->
         <div class="stepper">
           <div class="step-item" id="stepScryfall">
@@ -899,7 +1072,7 @@
           </div>
           <div class="step-item" id="stepDone">
             <div class="step-icon">✓</div>
-            <div class="step-label">Ready</div>
+            <div class="step-label">Finished</div>
           </div>
         </div>
 
@@ -940,16 +1113,83 @@
 
     // Load initial data
     window.addEventListener('DOMContentLoaded', () => {
+      // Restore portal settings from localStorage
+      const savedPortal = localStorage.getItem('generator_portal_url');
+      if (savedPortal) document.getElementById('portalUrl').value = savedPortal;
+      const savedPassword = localStorage.getItem('generator_admin_password');
+      if (savedPassword) document.getElementById('adminPassword').value = savedPassword;
+      const savedDir = localStorage.getItem('generator_input_dir');
+      if (savedDir) document.getElementById('localDirPath').value = savedDir;
+
       loadConfig();
-      loadLocalDecks();
+      scanCustomDirectory();
       initEventStream();
     });
+
+    function savePortalSettings() {
+      const url = document.getElementById('portalUrl').value.trim();
+      const pwd = document.getElementById('adminPassword').value;
+      if (url) localStorage.setItem('generator_portal_url', url);
+      if (pwd) localStorage.setItem('generator_admin_password', pwd);
+    }
+
+    function togglePasswordVisibility() {
+      const input = document.getElementById('adminPassword');
+      const btn = document.getElementById('btnTogglePassword');
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁';
+      }
+    }
+
+    let availableModels = [];
+
+    async function loadUpscaleModels(selectedId) {
+      try {
+        const res = await fetch('/api/upscale-models');
+        const data = await res.json();
+        if (data.models && data.models.length > 0) {
+          availableModels = data.models;
+          const select = document.getElementById('cfgUpscaleModel');
+          select.innerHTML = '';
+          data.models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            const badge = m.downloaded ? ' 💾 Ready' : ' ⬇ Auto-Download';
+            opt.textContent = `${m.name}${badge}`;
+            select.appendChild(opt);
+          });
+          if (selectedId) {
+            select.value = selectedId;
+          }
+          onModelChange();
+        }
+      } catch (e) {
+        console.warn('Could not load models list:', e);
+      }
+    }
+
+    function onModelChange() {
+      const select = document.getElementById('cfgUpscaleModel');
+      const descEl = document.getElementById('modelDescription');
+      if (!select || !descEl) return;
+      const model = availableModels.find(m => m.id === select.value);
+      if (model && model.description) {
+        descEl.textContent = model.description + (model.downloaded ? ' (Model weights cached locally).' : ' (Weights will download automatically on first run).');
+      } else {
+        descEl.textContent = '';
+      }
+    }
 
     async function loadConfig() {
       try {
         const res = await fetch('/api/config');
         const data = await res.json();
         document.getElementById('cfgMode').value = data.mode;
+        await loadUpscaleModels(data.upscale_model || '4x-UltraSharp');
         document.getElementById('cfgUpscaleFactor').value = data.upscale_factor;
         document.getElementById('cfgDevice').value = data.device;
         document.getElementById('cfgCutWidth').value = data.cut_width_mm;
@@ -957,10 +1197,28 @@
         document.getElementById('cfgBleedMargin').value = data.bleed_margin_mm;
         document.getElementById('cfgBreakBy').value = data.break_by;
         document.getElementById('cfgTwoDividers').checked = data.two_divider_cards;
+        if (data.custom_back_check_ratio !== undefined) {
+          document.getElementById('cfgCustomBackCheckRatio').checked = data.custom_back_check_ratio;
+        }
+        if (data.custom_back_upscale !== undefined) {
+          document.getElementById('cfgCustomBackUpscale').checked = data.custom_back_upscale;
+        }
+        if (data.custom_back_add_bleed !== undefined) {
+          document.getElementById('cfgCustomBackAddBleed').checked = data.custom_back_add_bleed;
+        }
         document.getElementById('cfgEnableSuborders').checked = data.enable_suborders;
         document.getElementById('cfgCardsPerSheet').value = data.cards_per_sheet;
         document.getElementById('cfgTargetSuborder').value = data.target_suborder_cards;
         document.getElementById('cfgRemoveCopyright').checked = data.remove_copyright;
+
+        const savedCache = localStorage.getItem('mtg_proxy_cache_dir');
+        if (savedCache) {
+          document.getElementById('cfgCacheDir').value = savedCache;
+        } else if (data.cache_dir) {
+          document.getElementById('cfgCacheDir').value = data.cache_dir;
+        }
+        refreshCacheStats();
+
         onModeChange();
       } catch (e) {
         console.error('Config fetch failed:', e);
@@ -969,25 +1227,195 @@
 
     function onModeChange() {
       const mode = document.getElementById('cfgMode').value;
-      const group = document.getElementById('upscaleScaleGroup');
-      group.style.opacity = (mode === 'upscaled') ? '1' : '0.4';
+      const scaleGroup = document.getElementById('upscaleScaleGroup');
+      const modelGroup = document.getElementById('upscaleModelGroup');
+      const isUpscaled = (mode === 'upscaled');
+      if (scaleGroup) {
+        scaleGroup.style.opacity = isUpscaled ? '1' : '0.4';
+        scaleGroup.style.pointerEvents = isUpscaled ? 'auto' : 'none';
+      }
+      if (modelGroup) {
+        modelGroup.style.opacity = isUpscaled ? '1' : '0.4';
+        modelGroup.style.pointerEvents = isUpscaled ? 'auto' : 'none';
+      }
     }
 
-    async function loadLocalDecks() {
+    async function scanCustomDirectory() {
+      const dirInput = document.getElementById('localDirPath');
+      const dir = (dirInput ? dirInput.value.trim() : '') || 'input';
+      localStorage.setItem('generator_input_dir', dir);
       try {
-        const res = await fetch('/api/local-decks');
+        appendLog(`[LOCAL] Scanning folder '${dir}'...`, 'cyan');
+        const res = await fetch('/api/scan-directory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ directory: dir })
+        });
         const data = await res.json();
         localDecks = data.decks || [];
         renderDeckTable();
+        appendLog(`[LOCAL] Found ${localDecks.length} deck(s) in '${dir}'`, 'acid');
       } catch (e) {
-        console.error('Local decks scan failed:', e);
+        appendLog(`[ERROR] Scan failed: ${e.message}`, 'red');
       }
+    }
+
+    async function browseLocalDirectory() {
+      try {
+        appendLog('[LOCAL] Opening folder chooser dialog...', 'cyan');
+        const currentDir = document.getElementById('localDirPath').value.trim() || 'input';
+        const res = await fetch('/api/browse-directory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ initial_dir: currentDir })
+        });
+        const data = await res.json();
+        if (data.cancelled) {
+          appendLog('[LOCAL] Folder selection cancelled.', 'paper');
+          return;
+        }
+        if (data.path) {
+          document.getElementById('localDirPath').value = data.path;
+          localStorage.setItem('generator_input_dir', data.path);
+          localDecks = data.decks || [];
+          renderDeckTable();
+          appendLog(`[LOCAL] Selected directory '${data.path}' (${localDecks.length} decks)`, 'acid');
+        }
+      } catch (e) {
+        appendLog(`[ERROR] Folder picker failed: ${e.message}`, 'red');
+      }
+    }
+
+    async function browseAndImportZip() {
+      try {
+        appendLog('[IMPORT] Opening ZIP file chooser dialog...', 'cyan');
+        const currentDir = document.getElementById('localDirPath').value.trim() || 'input';
+        const res = await fetch('/api/browse-zip', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ initial_dir: currentDir })
+        });
+        const data = await res.json();
+        if (data.cancelled) {
+          appendLog('[IMPORT] ZIP selection cancelled.', 'paper');
+          return;
+        }
+        if (data.path) {
+          const targetDir = document.getElementById('localDirPath').value.trim() || 'input';
+          appendLog(`[IMPORT] Unpacking ZIP '${data.path}' into '${targetDir}'...`, 'cyan');
+          const importRes = await fetch('/api/import-local-zip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ zip_path: data.path, target_dir: targetDir })
+          });
+          const importData = await importRes.json();
+          if (importData.error) {
+            appendLog(`[ERROR] ZIP import failed: ${importData.error}`, 'red');
+            alert(importData.error);
+            return;
+          }
+          localDecks = importData.decks || [];
+          renderDeckTable();
+          appendLog(`[IMPORT] Successfully unpacked and loaded ${localDecks.length} deck(s) from ZIP!`, 'acid');
+        }
+      } catch (e) {
+        appendLog(`[ERROR] ZIP browse/import failed: ${e.message}`, 'red');
+      }
+    }
+
+    async function browseCacheDirectory() {
+      try {
+        appendLog('[STORAGE] Opening cache folder chooser dialog...', 'cyan');
+        const current = (document.getElementById('cfgCacheDir') ? document.getElementById('cfgCacheDir').value.trim() : '') || 'scryfall_cache';
+        const res = await fetch('/api/browse-directory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            initial_dir: current,
+            prompt: 'Select Cache Directory (External Drive or Local Folder):',
+            scan_decks: false
+          })
+        });
+        const data = await res.json();
+        if (data.cancelled) {
+          appendLog('[STORAGE] Cache folder selection cancelled.', 'paper');
+          return;
+        }
+        if (data.path) {
+          document.getElementById('cfgCacheDir').value = data.path;
+          localStorage.setItem('mtg_proxy_cache_dir', data.path);
+          appendLog(`[STORAGE] Cache directory set to: ${data.path}`, 'acid');
+          refreshCacheStats();
+        }
+      } catch (e) {
+        appendLog(`[ERROR] Browse cache failed: ${e.message}`, 'red');
+      }
+    }
+
+    function resetCacheDirToDefault() {
+      document.getElementById('cfgCacheDir').value = 'scryfall_cache';
+      localStorage.removeItem('mtg_proxy_cache_dir');
+      appendLog('[STORAGE] Cache directory reset to local default (scryfall_cache).', 'acid');
+      refreshCacheStats();
+    }
+
+    async function openCacheFolder() {
+      const dir = (document.getElementById('cfgCacheDir') ? document.getElementById('cfgCacheDir').value.trim() : '') || 'scryfall_cache';
+      try {
+        await fetch('/api/open-cache-folder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cache_dir: dir })
+        });
+        appendLog(`[STORAGE] Opened cache folder in Finder: ${dir}`, 'acid');
+      } catch (e) {
+        alert('Could not open folder: ' + e.message);
+      }
+    }
+
+    async function refreshCacheStats() {
+      const dir = (document.getElementById('cfgCacheDir') ? document.getElementById('cfgCacheDir').value.trim() : '') || 'scryfall_cache';
+      try {
+        const res = await fetch('/api/cache-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cache_dir: dir })
+        });
+        const data = await res.json();
+        const sizeText = document.getElementById('cacheSizeText');
+        const freeText = document.getElementById('cacheFreeText');
+        if (sizeText) {
+          if (data.total_gb >= 1.0) {
+            sizeText.textContent = `${data.total_gb} GB (${data.file_count.toLocaleString()} files)`;
+          } else {
+            sizeText.textContent = `${data.total_mb} MB (${data.file_count.toLocaleString()} files)`;
+          }
+        }
+        if (freeText) {
+          freeText.textContent = `${data.free_gb} GB free`;
+          if (data.free_gb < 15) {
+            freeText.style.color = 'var(--accent-crimson)';
+          } else {
+            freeText.style.color = 'var(--accent-acid)';
+          }
+        }
+      } catch (e) {}
+    }
+
+    function onCacheDirChanged() {
+      const val = document.getElementById('cfgCacheDir').value.trim();
+      if (val) {
+        localStorage.setItem('mtg_proxy_cache_dir', val);
+      }
+      refreshCacheStats();
     }
 
     async function pullOnlineDecks() {
       const portalUrl = document.getElementById('portalUrl').value.trim();
       const adminPassword = document.getElementById('adminPassword').value;
+      const targetDir = document.getElementById('localDirPath').value.trim() || 'input';
 
+      savePortalSettings();
       appendLog(`[PORTAL] Connecting to ${portalUrl}...`, 'cyan');
 
       try {
@@ -1000,25 +1428,28 @@
 
         if (data.error) {
           appendLog(`[ERROR] Portal request failed: ${data.error}`, 'red');
-          alert(`Could not fetch orders from portal: ${data.error}`);
+          alert(`Portal Authentication Failed:\n\n${data.error}\n\nPlease check the Admin Password field (matches ADMIN_PASSWORD in Render settings).`);
           return;
         }
 
         onlineDecks = data.decks || [];
-        appendLog(`[PORTAL] Found ${onlineDecks.length} online decklist(s). Syncing into local input/...`, 'acid');
+        appendLog(`[PORTAL] Found ${onlineDecks.length} online decklist(s). Syncing into '${targetDir}'...`, 'acid');
 
-        // Automatically import into input directory
+        // Automatically import into target directory
         const importRes = await fetch('/api/import-online-decks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ portal_url: portalUrl, admin_password: adminPassword })
+          body: JSON.stringify({ portal_url: portalUrl, admin_password: adminPassword, target_dir: targetDir })
         });
         const importData = await importRes.json();
 
         if (importData.success) {
           localDecks = importData.decks || [];
           renderDeckTable();
-          appendLog(`[PORTAL] Synced and prepared ${localDecks.length} local decklist(s)!`, 'acid');
+          appendLog(`[PORTAL] Synced and prepared ${localDecks.length} local decklist(s) in '${targetDir}'!`, 'acid');
+        } else if (importData.error) {
+          appendLog(`[ERROR] Import failed: ${importData.error}`, 'red');
+          alert(importData.error);
         }
       } catch (e) {
         appendLog(`[ERROR] ${e.message}`, 'red');
@@ -1134,8 +1565,10 @@
 
     async function startPrintRun() {
       const selectedPaths = [];
+      const customBackMap = {};
       document.querySelectorAll('.deck-cb:checked').forEach(cb => {
-        selectedPaths.push(cb.getAttribute('data-path'));
+        const p = cb.getAttribute('data-path');
+        selectedPaths.push(p);
       });
 
       if (selectedPaths.length === 0) {
@@ -1143,8 +1576,20 @@
         return;
       }
 
+      // Map any companion custom backs from loaded decks
+      localDecks.forEach(d => {
+        if (d.path && d.custom_back_path) {
+          customBackMap[d.path] = d.custom_back_path;
+        }
+      });
+
+      const btnStart = document.getElementById('btnStartRun');
+      btnStart.disabled = true;
+      btnStart.textContent = '⏳ DISPATCHING PIPELINE...';
+
       const payload = {
         mode: document.getElementById('cfgMode').value,
+        upscale_model: document.getElementById('cfgUpscaleModel') ? document.getElementById('cfgUpscaleModel').value : '4x-UltraSharp',
         upscale_factor: parseInt(document.getElementById('cfgUpscaleFactor').value, 10),
         device: document.getElementById('cfgDevice').value,
         cut_width_mm: parseFloat(document.getElementById('cfgCutWidth').value),
@@ -1153,16 +1598,23 @@
         bleed_mode: 'target_mm',
         break_by: document.getElementById('cfgBreakBy').value,
         two_divider_cards: document.getElementById('cfgTwoDividers').checked,
+        custom_back_check_ratio: document.getElementById('cfgCustomBackCheckRatio').checked,
+        custom_back_upscale: document.getElementById('cfgCustomBackUpscale').checked,
+        custom_back_add_bleed: document.getElementById('cfgCustomBackAddBleed').checked,
         enable_suborders: document.getElementById('cfgEnableSuborders').checked,
         cards_per_sheet: parseInt(document.getElementById('cfgCardsPerSheet').value, 10),
         target_suborder_cards: parseInt(document.getElementById('cfgTargetSuborder').value, 10),
         remove_copyright: document.getElementById('cfgRemoveCopyright').checked,
         reset_bleed_cache: document.getElementById('cfgResetBleedCache').checked,
-        selected_deck_paths: selectedPaths
+        input_dir: document.getElementById('localDirPath').value.trim() || 'input',
+        cache_dir: (document.getElementById('cfgCacheDir') ? document.getElementById('cfgCacheDir').value.trim() : '') || 'scryfall_cache',
+        selected_deck_paths: selectedPaths,
+        custom_back_map: customBackMap
       };
 
       appendLog('[RUNNER] Dispatching print run request...', 'acid');
       document.getElementById('resultsCard').style.display = 'none';
+      dismissError();
 
       try {
         const res = await fetch('/api/start-run', {
@@ -1172,12 +1624,18 @@
         });
         const data = await res.json();
         if (data.error) {
-          alert(data.error);
+          alert('Failed to start run: ' + data.error);
+          appendLog('[ERROR] ' + data.error, 'red');
+          btnStart.disabled = false;
+          btnStart.textContent = '⚡ START PRINT RUN';
         } else {
           setRunningState(true);
         }
       } catch (e) {
-        alert('Failed to start run: ' + e.message);
+        alert('Failed to dispatch run request: ' + e.message);
+        appendLog('[ERROR] ' + e.message, 'red');
+        btnStart.disabled = false;
+        btnStart.textContent = '⚡ START PRINT RUN';
       }
     }
 
@@ -1186,6 +1644,11 @@
         await fetch('/api/cancel', { method: 'POST' });
         appendLog('[RUNNER] Cancellation requested by user...', 'red');
       }
+    }
+
+    function dismissError() {
+      const errCard = document.getElementById('errorCard');
+      if (errCard) errCard.style.display = 'none';
     }
 
     function initEventStream() {
@@ -1215,13 +1678,17 @@
     function handleStateUpdate(data) {
       const { job_status, stage, progress, new_logs, results, error } = data;
 
-      setRunningState(job_status === 'running');
+      setRunningState(job_status);
 
       // Update Stepper
       updateStepper(stage, job_status);
 
       // Update Progress Bar
-      if (progress) {
+      if (job_status === 'completed') {
+        document.getElementById('progressFill').style.width = '100%';
+        document.getElementById('progressPercent').textContent = '100.0%';
+        document.getElementById('progressMessage').textContent = (progress && progress.message) ? progress.message : 'Print Run Completed Successfully!';
+      } else if (progress) {
         const pct = progress.percent || 0;
         document.getElementById('progressFill').style.width = `${pct}%`;
         document.getElementById('progressPercent').textContent = `${pct}%`;
@@ -1238,27 +1705,52 @@
         showResults(results);
       }
 
-      if (job_status === 'error' && error) {
-        appendLog(`[ERROR] ${error}`, 'red');
+      const errCard = document.getElementById('errorCard');
+      if (job_status === 'error') {
+        if (errCard) {
+          errCard.style.display = 'block';
+          document.getElementById('errorMessage').textContent = error || 'An unexpected pipeline error occurred.';
+        }
+        if (error) {
+          appendLog(`[ERROR] ${error}`, 'red');
+        }
+      } else if (job_status === 'running' || job_status === 'completed') {
+        if (errCard) errCard.style.display = 'none';
       }
     }
 
-    function setRunningState(running) {
-      isRunning = running;
+    function setRunningState(status) {
+      isRunning = (status === 'running');
       const dot = document.getElementById('statusDot');
       const text = document.getElementById('statusText');
       const btnStart = document.getElementById('btnStartRun');
       const btnCancel = document.getElementById('btnCancelRun');
 
-      if (running) {
+      if (status === 'running') {
         dot.className = 'status-dot running';
         text.textContent = 'RUNNING';
         btnStart.style.display = 'none';
         btnCancel.style.display = 'inline-flex';
+      } else if (status === 'completed') {
+        dot.className = 'status-dot completed';
+        text.textContent = 'FINISHED';
+        btnStart.style.display = 'inline-flex';
+        btnStart.disabled = false;
+        btnStart.textContent = '⚡ START PRINT RUN';
+        btnCancel.style.display = 'none';
+      } else if (status === 'error') {
+        dot.className = 'status-dot error';
+        text.textContent = 'ERROR';
+        btnStart.style.display = 'inline-flex';
+        btnStart.disabled = false;
+        btnStart.textContent = '⚡ START PRINT RUN';
+        btnCancel.style.display = 'none';
       } else {
-        dot.className = 'status-dot';
+        dot.className = 'status-dot idle';
         text.textContent = 'IDLE';
         btnStart.style.display = 'inline-flex';
+        btnStart.disabled = false;
+        btnStart.textContent = '⚡ START PRINT RUN';
         btnCancel.style.display = 'none';
       }
     }
@@ -1269,7 +1761,9 @@
         document.getElementById(id).className = 'step-item';
       });
 
-      if (stage === 'scryfall') {
+      if (job_status === 'completed' || stage === 'done') {
+        steps.forEach(id => document.getElementById(id).classList.add('done'));
+      } else if (stage === 'scryfall') {
         document.getElementById('stepScryfall').classList.add('active');
       } else if (stage === 'upscale') {
         document.getElementById('stepScryfall').classList.add('done');
@@ -1283,8 +1777,6 @@
         document.getElementById('stepUpscale').classList.add('done');
         document.getElementById('stepDividers').classList.add('done');
         document.getElementById('stepPdf').classList.add('active');
-      } else if (job_status === 'completed' || stage === 'done') {
-        steps.forEach(id => document.getElementById(id).classList.add('done'));
       }
     }
 
@@ -1331,6 +1823,10 @@
 
     function resetToDefaults() {
       document.getElementById('cfgMode').value = 'upscaled';
+      if (document.getElementById('cfgUpscaleModel')) {
+        document.getElementById('cfgUpscaleModel').value = '4x-UltraSharp';
+        onModelChange();
+      }
       document.getElementById('cfgUpscaleFactor').value = '2';
       document.getElementById('cfgDevice').value = 'auto';
       document.getElementById('cfgCutWidth').value = '63.0';
@@ -1338,6 +1834,9 @@
       document.getElementById('cfgBleedMargin').value = '3.0';
       document.getElementById('cfgBreakBy').value = 'none';
       document.getElementById('cfgTwoDividers').checked = true;
+      document.getElementById('cfgCustomBackCheckRatio').checked = true;
+      document.getElementById('cfgCustomBackUpscale').checked = true;
+      document.getElementById('cfgCustomBackAddBleed').checked = true;
       document.getElementById('cfgEnableSuborders').checked = false;
       document.getElementById('cfgCardsPerSheet').value = '18';
       document.getElementById('cfgTargetSuborder').value = '1440';

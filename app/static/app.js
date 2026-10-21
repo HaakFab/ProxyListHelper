@@ -93,6 +93,22 @@ function handleMoxfieldInput(deckIndex) {
   });
 }
 
+function handleDoubleSidedTokensToggle(deckIndex) {
+  const doubleTokens = document.getElementById(`double_sided_tokens_${deckIndex}`);
+  const incTokens = document.getElementById(`include_tokens_${deckIndex}`);
+  if (doubleTokens && doubleTokens.checked && incTokens) {
+    incTokens.checked = true;
+  }
+}
+
+function handleIncludeTokensToggle(deckIndex) {
+  const doubleTokens = document.getElementById(`double_sided_tokens_${deckIndex}`);
+  const incTokens = document.getElementById(`include_tokens_${deckIndex}`);
+  if (incTokens && !incTokens.checked && doubleTokens) {
+    doubleTokens.checked = false;
+  }
+}
+
 function handleImageUpload(input, deckIndex) {
   const preview = document.getElementById(`preview_img_${deckIndex}`);
   const prompt = document.getElementById(`upload_prompt_${deckIndex}`);
@@ -189,8 +205,12 @@ function addDeckForm() {
         Include Considering
       </label>
       <label class="checkbox-label">
-        <input type="checkbox" id="include_tokens_${idx}" name="include_tokens_${idx}">
+        <input type="checkbox" id="include_tokens_${idx}" name="include_tokens_${idx}" onchange="handleIncludeTokensToggle(${idx})">
         Include Tokens
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="double_sided_tokens_${idx}" name="double_sided_tokens_${idx}" onchange="handleDoubleSidedTokensToggle(${idx})">
+        Double-Sided Tokens (Pair Back-to-Back)
       </label>
       <label class="checkbox-label">
         <input type="checkbox" id="include_stickers_${idx}" name="include_stickers_${idx}">
@@ -554,11 +574,13 @@ let currentDiagIdx = null;
 let currentCardName = null;
 let currentActiveSet = null;
 let currentActiveCn = null;
+let currentOriginalSet = null;
+let currentOriginalCn = null;
 let currentVersionsList = [];
 let currentFilteredVersions = [];
 let currentActiveFilter = 'all';
 
-function openVersionPicker(deckId, diagIdx, cardName, currentSet, currentCn) {
+function openVersionPicker(deckId, diagIdx, cardName, currentSet, currentCn, originalSet, originalCn) {
   if (typeof window.hideCardTooltip === 'function') {
     window.hideCardTooltip();
   }
@@ -570,6 +592,8 @@ function openVersionPicker(deckId, diagIdx, cardName, currentSet, currentCn) {
   currentCardName = cardName;
   currentActiveSet = (currentSet || '').toLowerCase().trim();
   currentActiveCn = String(currentCn || '').trim();
+  currentOriginalSet = (originalSet || '').toLowerCase().trim();
+  currentOriginalCn = String(originalCn || '').trim();
   currentActiveFilter = 'all';
 
   const modal = document.getElementById('version-picker-modal');
@@ -587,6 +611,14 @@ function openVersionPicker(deckId, diagIdx, cardName, currentSet, currentCn) {
     currentBadge.textContent = currentActiveSet && currentActiveCn 
       ? `${currentActiveSet.toUpperCase()} #${currentActiveCn}`
       : 'NONE';
+  }
+  const contextEl = document.getElementById('modal-replacing-context');
+  if (contextEl) {
+    let ctxText = `Active Replacement: <strong id="modal-current-version-label" style="background: #111; color: var(--accent-acid); padding: 1px 6px;">${currentActiveSet ? currentActiveSet.toUpperCase() + ' #' + currentActiveCn : 'NONE'}</strong>`;
+    if (currentOriginalSet && currentOriginalCn && (currentOriginalSet !== currentActiveSet || currentOriginalCn !== currentActiveCn)) {
+      ctxText += ` &nbsp;|&nbsp; <span style="color: #666;">Original in list: <strong>${currentOriginalSet.toUpperCase()} #${currentOriginalCn}</strong></span>`;
+    }
+    contextEl.innerHTML = ctxText;
   }
   if (searchInput) searchInput.value = '';
 
@@ -698,9 +730,13 @@ function renderVersionCards() {
   let html = '';
   currentFilteredVersions.forEach((v, idx) => {
     const isCurrent = (v.set.toLowerCase() === currentActiveSet && String(v.collector_number) === currentActiveCn);
+    const isOriginal = (currentOriginalSet && currentOriginalCn && v.set.toLowerCase() === currentOriginalSet && String(v.collector_number) === currentOriginalCn);
     
     // Badges
     let badgesHtml = '';
+    if (isOriginal) {
+      badgesHtml += '<span class="v-badge" style="background:#FEF3C7; color:#92400E; border-color:#F59E0B; font-weight:800;">Original In List</span>';
+    }
     if (!v.is_digital) {
       badgesHtml += '<span class="v-badge v-badge-paper">Paper</span>';
     } else {
@@ -728,9 +764,14 @@ function renderVersionCards() {
       ? `<img src="${v.image_url}" alt="${escapeHtml(v.version_label)}" loading="lazy">`
       : `<div style="font-family: var(--font-mono); font-size: 0.68rem; color: #888; text-align: center; padding: 10px;">No scan</div>`;
 
-    const actionHtml = isCurrent
-      ? `<div class="badge-current-chosen">[✓ CURRENT SELECTION]</div>`
-      : `<button type="button" class="btn-select-version" id="btn-select-v-${idx}" onclick="replaceTheReplacement(${idx})">[⚡ REPLACE THE REPLACEMENT]</button>`;
+    let actionHtml = '';
+    if (isCurrent) {
+      actionHtml = `<div class="badge-current-chosen">[✓ CURRENT SELECTION]</div>`;
+    } else if (isOriginal) {
+      actionHtml = `<button type="button" class="btn-select-version" id="btn-select-v-${idx}" onclick="replaceTheReplacement(${idx})" style="background: var(--accent-acid); color: var(--text-dark); border-color: #000; font-weight: 800;">[↺ KEEP ORIGINAL FROM LIST]</button>`;
+    } else {
+      actionHtml = `<button type="button" class="btn-select-version" id="btn-select-v-${idx}" onclick="replaceTheReplacement(${idx})">[⚡ SELECT THIS VERSION]</button>`;
+    }
 
     html += `
       <div class="version-card-tile ${isCurrent ? 'is-current' : ''}">
@@ -777,6 +818,9 @@ function replaceTheReplacement(filteredIdx) {
   .then(res => res.json())
   .then(data => {
     if (data && data.success) {
+      currentActiveSet = version.set.toLowerCase().trim();
+      currentActiveCn = String(version.collector_number).trim();
+
       // 1. Update Chip
       const chip = document.getElementById(`v2-chip-${currentDeckId}-${currentDiagIdx}`);
       if (chip) {
@@ -801,7 +845,13 @@ function replaceTheReplacement(filteredIdx) {
         hiddenInput.value = data.fixed_line;
       }
 
-      // 4. Update Hover attributes on row
+      // 3b. Ensure radio button is set to 'substitute' if on an issue card
+      const radio = document.querySelector(`input[name="action_${currentDeckId}_${currentDiagIdx}"][value="substitute"]`);
+      if (radio) {
+        radio.checked = true;
+      }
+
+      // 4. Update Hover attributes on row & update switch button's onclick
       const row = document.getElementById(`replacement-row-${currentDeckId}-${currentDiagIdx}`) ||
                   document.getElementById(`issue-row-${currentDeckId}-${currentDiagIdx}`);
       if (row) {
@@ -810,6 +860,11 @@ function replaceTheReplacement(filteredIdx) {
         }
         row.dataset.v2Label = data.fixed_version_label || `${version.set.toUpperCase()} #${version.collector_number}`;
         row.dataset.reason = data.message || `Replaced with ${version.set.toUpperCase()} #${version.collector_number}`;
+
+        const switchBtn = row.querySelector('.btn-switch-version');
+        if (switchBtn) {
+          switchBtn.setAttribute('onclick', `openVersionPicker(${currentDeckId}, ${currentDiagIdx}, '${escapeHtml(currentCardName)}', '${version.set}', '${version.collector_number}', '${currentOriginalSet}', '${currentOriginalCn}')`);
+        }
 
         // Flash row briefly with green outline
         row.style.outline = '3px solid var(--accent-acid)';
@@ -828,7 +883,7 @@ function replaceTheReplacement(filteredIdx) {
       alert((data && data.detail) || 'Failed to update replacement version.');
       if (btn) {
         btn.disabled = false;
-        btn.textContent = '[⚡ REPLACE THE REPLACEMENT]';
+        btn.textContent = '[⚡ SELECT THIS VERSION]';
       }
     }
   })
@@ -836,7 +891,7 @@ function replaceTheReplacement(filteredIdx) {
     alert('Network error while saving replacement version.');
     if (btn) {
       btn.disabled = false;
-      btn.textContent = '[⚡ REPLACE THE REPLACEMENT]';
+      btn.textContent = '[⚡ SELECT THIS VERSION]';
     }
   });
 }

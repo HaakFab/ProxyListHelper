@@ -364,3 +364,24 @@ def test_custom_double_sided_back_not_found_blocks_as_red():
     assert audit.traffic_light == "RED"
     assert audit.can_auto_fix is False
 
+
+def test_reanimate_puma_not_replaced_by_grave_researcher():
+    from proxy_parser.checker.scryfall_validator import is_exact_or_front_face_match
+
+    grave_researcher = {
+        "name": "Grave Researcher // Reanimate",
+        "card_faces": [
+            {"name": "Grave Researcher"},
+            {"name": "Reanimate"}
+        ]
+    }
+    reanimate_clean = {
+        "name": "Reanimate",
+        "set": "dsc",
+        "collector_number": "155"
+    }
+
+    assert not is_exact_or_front_face_match(grave_researcher, "Reanimate")
+    assert is_exact_or_front_face_match(reanimate_clean, "Reanimate")
+
+

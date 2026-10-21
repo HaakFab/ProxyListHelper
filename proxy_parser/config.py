@@ -7,6 +7,7 @@ from typing import Optional
 class AppConfig:
     # Mode & Quality
     mode: str = "scryfall"             # "scryfall" or "upscaled"
+    upscale_model: str = "4x-UltraSharp" # Model ID from available models registry
     upscale_factor: int = 2            # 2 (for ~600 DPI) or 4
     remove_copyright: bool = False     # Toggle off by default per user requirement
     device: str = "auto"               # "auto", "mps", "cuda", "cpu"
@@ -37,8 +38,14 @@ class AppConfig:
     output_dir: str = "."
     cache_dir: str = "scryfall_cache"
     upscaled_cache_dir: str = "upscaled_cache"
+    weights_dir: str = "weights"
     # Divider Cards Configuration
     two_divider_cards: bool = True     # 2 cards per list: 1=Identity (Person large), 2=Details (card count & specs)
+
+    # Custom Card Back Processing Toggles
+    custom_back_check_ratio: bool = True  # Center-crop non-standard ratios to 63:88 standard
+    custom_back_upscale: bool = True      # Upscale low-res card backs to print DPI match
+    custom_back_add_bleed: bool = True    # Add intelligent bleed extension (3mm)
 
     # Smart Suborder Grouping for Sheet Cut & Stack
     # Minimizes sheet waste and blade draw on large proxy orders
@@ -69,6 +76,37 @@ class AppConfig:
     def target_card_height_inch(self) -> float:
         return self.target_card_height_mm / 25.4
 
+    def set_cache_base_dir(self, path: str) -> None:
+        """
+        Configures cache directories, supporting external drive roots or specific folders.
+        """
+        if not path or not str(path).strip():
+            return
+        path = os.path.abspath(str(path).strip())
+        base_name = os.path.basename(path.rstrip("/\\"))
+        if base_name == "scryfall_cache":
+            self.cache_dir = path
+            self.upscaled_cache_dir = os.path.join(os.path.dirname(path), "upscaled_cache")
+        elif base_name == "upscaled_cache":
+            self.cache_dir = os.path.join(os.path.dirname(path), "scryfall_cache")
+            self.upscaled_cache_dir = path
+        elif os.path.isdir(os.path.join(path, "scryfall_cache")) or os.path.isdir(os.path.join(path, "upscaled_cache")):
+            self.cache_dir = os.path.join(path, "scryfall_cache")
+            self.upscaled_cache_dir = os.path.join(path, "upscaled_cache")
+        else:
+            try:
+                if os.path.isdir(path) and any(f.endswith("_meta.json") or f.endswith("_front.png") for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))):
+                    self.cache_dir = path
+                    self.upscaled_cache_dir = os.path.join(path, "upscaled_cache")
+                else:
+                    self.cache_dir = os.path.join(path, "scryfall_cache")
+                    self.upscaled_cache_dir = os.path.join(path, "upscaled_cache")
+            except Exception:
+                self.cache_dir = os.path.join(path, "scryfall_cache")
+                self.upscaled_cache_dir = os.path.join(path, "upscaled_cache")
+        os.makedirs(self.cache_dir, exist_ok=True)
+        os.makedirs(self.upscaled_cache_dir, exist_ok=True)
+
 def parse_arguments() -> AppConfig:
     parser = argparse.ArgumentParser(
         description="MTG Moxfield Proxy to High-Resolution MPC-Ready PDF Generator",
@@ -81,6 +119,12 @@ def parse_arguments() -> AppConfig:
         choices=["scryfall", "upscaled"],
         default="scryfall",
         help="Processing mode: 'scryfall' for fast high-res Scryfall scans, 'upscaled' for Real-ESRGAN upscaling"
+    )
+    parser.add_argument(
+        "--upscale-model",
+        type=str,
+        default="4x-UltraSharp",
+        help="Super-resolution AI model to use (e.g. '4x-UltraSharp', '4x_Remacri', '4x_NMKD-Superscale', '4x-AnimeSharp', 'RealESRGAN_x4plus', 'RealESRGAN_x2')"
     )
     parser.add_argument(
         "--upscale-factor",
@@ -178,6 +222,9 @@ def parse_arguments() -> AppConfig:
     parser.add_argument("--input-dir", type=str, default="input", help="Directory containing decklist .txt files")
     parser.add_argument("--backs-dir", type=str, default="backs", help="Directory containing card back images")
     parser.add_argument("--cardback", type=str, default=os.path.join("backs", "proxy1.jpg"), help="Default cardback image path")
+    parser.add_argument("--cache-dir", type=str, default="scryfall_cache", help="Directory for Scryfall card downloads, meta, and bleed cache")
+    parser.add_argument("--upscaled-cache-dir", type=str, default="upscaled_cache", help="Directory for upscaled card cache")
+    parser.add_argument("--weights-dir", type=str, default="weights", help="Directory containing AI model weights")
     parser.add_argument("--output-pdf", type=str, default="all_cards_individual_pages.pdf", help="Output PDF name/path template")
     parser.add_argument("--output-csv", type=str, default="card_totals_summary.csv", help="Output summary CSV name/path")
     # Divider & Suborder Options
@@ -217,10 +264,38 @@ def parse_arguments() -> AppConfig:
         default=False,
         help="Launch the local graphical web interface to configure parameters, select decklists, and monitor progress"
     )
+    # Custom Card Back options
+    parser.add_argument(
+        "--no-custom-back-check-ratio",
+        action="store_false",
+        dest="custom_back_check_ratio",
+        default=True,
+        help="Disable automatic aspect ratio check and center-cropping for custom card backs"
+    )
+    parser.add_argument(
+        "--no-custom-back-upscale",
+        action="store_false",
+        dest="custom_back_upscale",
+        default=True,
+        help="Disable upscaling for low-resolution custom card backs"
+    )
+    parser.add_argument(
+        "--no-custom-back-bleed",
+        action="store_false",
+        dest="custom_back_add_bleed",
+        default=True,
+        help="Disable adding intelligent bleed margin to custom card backs"
+    )
+    parser.add_argument(
+        "--info",
+        action="store_true",
+        default=False,
+        help="Display info documentation and exit"
+    )
 
     args = parser.parse_args()
 
-    if args.info:
+    if getattr(args, "info", False):
         info_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "info.md")
         if not os.path.exists(info_path):
             info_path = "info.md"
@@ -237,6 +312,7 @@ def parse_arguments() -> AppConfig:
 
     return AppConfig(
         mode=args.mode,
+        upscale_model=getattr(args, "upscale_model", "4x-UltraSharp"),
         upscale_factor=args.upscale_factor,
         remove_copyright=args.remove_copyright,
         device=args.device,
@@ -250,6 +326,9 @@ def parse_arguments() -> AppConfig:
         break_by=args.break_by,
         break_count=args.break_count,
         two_divider_cards=args.two_divider_cards,
+        custom_back_check_ratio=args.custom_back_check_ratio,
+        custom_back_upscale=args.custom_back_upscale,
+        custom_back_add_bleed=args.custom_back_add_bleed,
         enable_suborders=args.enable_suborders,
         cards_per_sheet=args.cards_per_sheet,
         target_suborder_cards=args.target_suborder_cards,
@@ -257,8 +336,11 @@ def parse_arguments() -> AppConfig:
         gdrive_dir=args.gdrive_dir,
         offload_cache=args.offload_cache,
         input_dir=args.input_dir,
+        cache_dir=args.cache_dir,
+        upscaled_cache_dir=args.upscaled_cache_dir,
         backs_dir=args.backs_dir,
         default_cardback=args.cardback,
+        weights_dir=getattr(args, "weights_dir", "weights"),
         output_pdf=args.output_pdf,
         output_csv=args.output_csv
     )

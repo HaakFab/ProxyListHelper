@@ -121,6 +121,9 @@ async def submit_decks(
         inc_sideboard = _is_checkbox_checked(form_data.get(f"include_sideboard_{i}"))
         inc_considering = _is_checkbox_checked(form_data.get(f"include_considering_{i}"))
         inc_tokens = _is_checkbox_checked(form_data.get(f"include_tokens_{i}"))
+        double_sided_tokens = _is_checkbox_checked(form_data.get(f"double_sided_tokens_{i}"))
+        if double_sided_tokens:
+            inc_tokens = True
         inc_stickers = _is_checkbox_checked(form_data.get(f"include_stickers_{i}"))
         conv_foils = _is_checkbox_checked(form_data.get(f"convert_foils_{i}"))
         rep_stamps = _is_checkbox_checked(form_data.get(f"replace_stamps_{i}"))
@@ -178,7 +181,8 @@ async def submit_decks(
             replace_stamps=rep_stamps,
             replace_date_stamps=rep_date_stamps,
             replace_digital=rep_digital,
-            deck_name=deck_name
+            deck_name=deck_name,
+            double_sided_tokens=double_sided_tokens
         )
         
         if deck_status == "RED":
@@ -197,6 +201,7 @@ async def submit_decks(
             include_sideboard=inc_sideboard,
             include_considering=inc_considering,
             include_tokens=inc_tokens,
+            double_sided_tokens=double_sided_tokens,
             include_stickers=inc_stickers,
             convert_foils=conv_foils,
             replace_stamps=rep_stamps,
@@ -321,6 +326,12 @@ async def switch_deck_card_version(
         qty, card_name, new_set, new_cn,
         item.get("back_name"), item.get("back_set"), item.get("back_cn")
     )
+
+    # Preserve original set and cn if not already set
+    if "original_set" not in item:
+        item["original_set"] = item.get("set")
+    if "original_cn" not in item:
+        item["original_cn"] = item.get("cn")
 
     # Update item in diagnostics
     item["set"] = new_set

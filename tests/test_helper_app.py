@@ -942,3 +942,268 @@ def test_unchecked_options_not_replaced(client):
         deck_2 = order_2.decks[0]
         assert deck_2.convert_foils is True
 
+
+def test_reanimate_not_replaced_by_grave_researcher():
+    from app.scryfall import find_clean_paper_fallback, get_card_versions
+    from app.converter import process_deck_cards
+
+    # 1. find_clean_paper_fallback
+    res = find_clean_paper_fallback("Reanimate")
+    assert res is not None
+    assert res.get("name") == "Reanimate"
+    assert "Grave Researcher" not in res.get("name")
+
+    # 2. find_clean_paper_fallback with preferred_set="puma"
+    res_puma = find_clean_paper_fallback("Reanimate", preferred_set="puma")
+    assert res_puma is not None
+    assert res_puma.get("name") == "Reanimate"
+    assert "Grave Researcher" not in res_puma.get("name")
+
+    # 3. get_card_versions
+    versions = get_card_versions("Reanimate")
+    assert len(versions) > 0
+    for v in versions:
+        assert "Grave Researcher" not in v.get("version_label", "")
+
+    # 4. process_deck_cards with 1 Reanimate (PUMA) U12
+    items, status, text = process_deck_cards(
+        [{"qty": 1, "name": "Reanimate", "set": "puma", "cn": "u12"}],
+        convert_foils=True
+    )
+    assert status == "YELLOW"
+    assert "Grave Researcher" not in text
+    assert "Reanimate (DSC) 155" in text
+    assert items[0].suggested_set == "dsc"
+    assert items[0].suggested_cn == "155"
+
+
+def test_switch_version_allows_foil_and_original(client):
+    from app.database import get_db
+    from app.models import Order, Deck
+    import uuid
+
+    db_gen = app.dependency_overrides.get(get_db, get_db)
+    db = next(db_gen())
+
+    order_id = str(uuid.uuid4())
+    order = Order(
+        order_id=order_id,
+        reference_code=f"REF-FOIL-{uuid.uuid4().hex[:6]}",
+        submitter_name="FoilTestUser",
+        status="PENDING_REVIEW",
+        total_cards=1,
+        total_lists=1,
+        total_price_cents=39,
+        price_per_card_cents=13,
+        price_per_list_cents=26,
+        order_fee_cents=0
+    )
+    db.add(order)
+    db.commit()
+
+    deck = Deck(
+        order_id=order.id,
+        ordinal=1,
+        name="Commander Foil",
+        preferred_language="en",
+        raw_text="1 Force of Will (2XM) 383",
+        converted_text="1 Force of Will (2XM) 38",
+        status="PENDING_REVIEW",
+        card_count=1,
+        diagnostics_json=json.dumps([
+            {
+                "qty": 1,
+                "name": "Force of Will",
+                "set": "2xm",
+                "cn": "383",
+                "original_set": "2xm",
+                "original_cn": "383",
+                "status": "YELLOW",
+                "category": "FOIL_REPLACED",
+                "message": "Foil-only printing replaced with non-foil paper version (2XM #38).",
+                "original_line": "1 Force of Will (2XM) 383",
+                "fixed_line": "1 Force of Will (2XM) 38",
+                "can_autofix": True,
+                "suggested_set": "2xm",
+                "suggested_cn": "38",
+                "original_version_label": "Foil-Only (2XM #383)",
+                "fixed_version_label": "Non-Foil Paper (2XM #38)"
+            }
+        ])
+    )
+    db.add(deck)
+    db.commit()
+
+    # Verify review page passes suggested_set (2xm #38) as active replacement and original_set (2xm #383) as original
+    review_resp = client.get(f"/review/{order_id}?lang=en")
+    assert review_resp.status_code == 200
+    assert f"openVersionPicker({deck.id}, 0, 'Force of Will', '2xm', '38', '2xm', '383')" in review_resp.text
+
+    # Now switch to the original foil-only printing (2XM #383)
+    switch_resp = client.post(
+        f"/api/deck/{deck.id}/switch-version",
+        json={
+            "item_idx": 0,
+            "set": "2xm",
+            "cn": "383",
+            "image_url": "https://cards.scryfall.io/2xm383.jpg",
+            "version_label": "2XM #383 (Foil Only Borderless)"
+        }
+    )
+    assert switch_resp.status_code == 200
+    switch_data = switch_resp.json()
+    assert switch_data["success"] is True
+    assert switch_data["fixed_line"] == "1 Force of Will (2XM) 383"
+
+    # Confirm order resolve preserves the foil-only printing
+    resolve_resp = client.post(
+        f"/review/{order_id}/resolve",
+        data={"ui_lang": "en"},
+        follow_redirects=False
+    )
+    assert resolve_resp.status_code == 303
+    db.refresh(deck)
+    assert "1 Force of Will (2XM) 383" in deck.converted_text
+
+
+def test_add_another_deck_button_and_i18n(client):
+    from app.i18n import t
+    assert t("add_another_deck", "en") == "ADD ANOTHER DECK"
+    assert t("add_another_deck", "de") == "WEITERES DECK HINZUFÜGEN"
+
+    resp = client.get("/?lang=en")
+    assert resp.status_code == 200
+    assert "btn-add-deck" in resp.text
+    assert "[+ ADD ANOTHER DECK]" in resp.text
+    assert "[+ + ADD ANOTHER DECK]" not in resp.text
+
+
+def test_double_sided_tokens_cyclic_pairing_three_tokens():
+    from app.converter import process_deck_cards
+    cards = [
+        {"qty": 1, "name": "Sol Ring", "set": "lea", "cn": "1", "board": "mainboard"},
+        {"qty": 1, "name": "Token A", "set": "tpip", "cn": "1", "board": "tokens"},
+        {"qty": 1, "name": "Token B", "set": "tpip", "cn": "2", "board": "tokens"},
+        {"qty": 1, "name": "Token C", "set": "tpip", "cn": "3", "board": "tokens"},
+    ]
+    audit_items, status, converted = process_deck_cards(cards, double_sided_tokens=True)
+    
+    assert "1 Sol Ring (LEA) 1\n" in converted
+    assert "1 Token A (TPIP) 1 &&& Token B (TPIP) 2" in converted
+    assert "1 Token B (TPIP) 2 &&& Token C (TPIP) 3" in converted
+    assert "1 Token C (TPIP) 3 &&& Token A (TPIP) 1" in converted
+    # Non-token card should not have a back
+    sol_ring_item = next(a for a in audit_items if a.name == "Sol Ring")
+    assert sol_ring_item.back_name is None
+
+
+def test_double_sided_tokens_single_token():
+    from app.converter import process_deck_cards
+    cards = [
+        {"qty": 1, "name": "Sol Ring", "set": "lea", "cn": "1", "board": "mainboard"},
+        {"qty": 1, "name": "Token A", "set": "tpip", "cn": "1", "board": "tokens"},
+    ]
+    audit_items, status, converted = process_deck_cards(cards, double_sided_tokens=True)
+    
+    assert "1 Token A (TPIP) 1 &&& Token A (TPIP) 1" in converted
+    token_item = next(a for a in audit_items if a.name == "Token A")
+    assert token_item.back_name == "Token A"
+    assert token_item.back_set == "tpip"
+    assert token_item.back_cn == "1"
+
+
+def test_double_sided_tokens_multiple_qty():
+    from app.converter import process_deck_cards
+    cards = [
+        {"qty": 2, "name": "Token A", "set": "tpip", "cn": "1", "board": "tokens"},
+        {"qty": 1, "name": "Token B", "set": "tpip", "cn": "2", "board": "tokens"},
+    ]
+    audit_items, status, converted = process_deck_cards(cards, double_sided_tokens=True)
+    
+    token_items = [a for a in audit_items if a.name in ("Token A", "Token B")]
+    assert len(token_items) == 3
+    assert f"{token_items[0].name} >> {token_items[0].back_name}" == "Token A >> Token A"
+    assert f"{token_items[1].name} >> {token_items[1].back_name}" == "Token A >> Token B"
+    assert f"{token_items[2].name} >> {token_items[2].back_name}" == "Token B >> Token A"
+    assert "1 Token A (TPIP) 1 &&& Token A (TPIP) 1" in converted
+    assert "1 Token A (TPIP) 1 &&& Token B (TPIP) 2" in converted
+    assert "1 Token B (TPIP) 2 &&& Token A (TPIP) 1" in converted
+
+
+def test_parse_pasted_text_token_board():
+    pasted = (
+        "// Commander\n"
+        "1 Atraxa (ONE) 196\n"
+        "// Mainboard\n"
+        "1 Sol Ring (LEA) 1\n"
+        "// Tokens\n"
+        "1 Incubator Token (TMOM) 1\n"
+        "1 Phyrexian Token (TMOM) 2\n"
+    )
+    cards = parse_pasted_text(pasted)
+    assert len(cards) == 4
+    assert cards[0]["board"] == "mainboard"
+    assert cards[1]["board"] == "mainboard"
+    assert cards[2]["board"] == "tokens"
+    assert cards[3]["board"] == "tokens"
+
+
+def test_client_submit_double_sided_tokens_autoselects_include_tokens(client):
+    from app.models import Order
+    from app.database import get_db
+    pasted = (
+        "// Mainboard\n"
+        "1 Sol Ring (LEA) 1\n"
+        "// Tokens\n"
+        "1 Token A (TPIP) 1\n"
+        "1 Token B (TPIP) 2\n"
+    )
+    resp = client.post(
+        "/submit",
+        data={
+            "submitter_name": "Fabian",
+            "ui_lang": "en",
+            "deck_count": "1",
+            "deck_name_0": "Token Deck",
+            "source_type_0": "text",
+            "raw_text_0": pasted,
+            "double_sided_tokens_0": "on",
+            # include_tokens_0 intentionally omitted to test backend autoselection
+        },
+        follow_redirects=False
+    )
+    assert resp.status_code == 303
+    order_id = resp.headers["location"].split("/")[-1].split("?")[0]
+    
+    db_gen = app.dependency_overrides.get(get_db, get_db)
+    db = next(db_gen())
+    order = db.query(Order).filter(Order.order_id == order_id).first()
+    assert order is not None
+    assert len(order.decks) == 1
+    deck = order.decks[0]
+    
+    assert deck.include_tokens is True
+    assert deck.double_sided_tokens is True
+    assert "1 Token A (TPIP) 1 &&& Token B (TPIP) 2" in deck.converted_text
+    assert "1 Token B (TPIP) 2 &&& Token A (TPIP) 1" in deck.converted_text
+
+
+def test_index_page_contains_double_sided_tokens_checkbox(client):
+    import html
+    from app.i18n import t
+    # English
+    resp_en = client.get("/?lang=en")
+    assert resp_en.status_code == 200
+    assert 'id="double_sided_tokens_0"' in resp_en.text
+    assert html.escape(t("double_sided_tokens", "en")) in resp_en.text
+    assert "handleDoubleSidedTokensToggle(0)" in resp_en.text
+
+    # German
+    resp_de = client.get("/?lang=de")
+    assert resp_de.status_code == 200
+    assert 'id="double_sided_tokens_0"' in resp_de.text
+    assert html.escape(t("double_sided_tokens", "de")) in resp_de.text
+
+
+
+

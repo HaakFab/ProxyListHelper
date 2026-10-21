@@ -69,6 +69,22 @@ def preload_cards_batch(cards: List[dict]):
                 seen.add(key)
                 identifiers.append({"name": clean_split})
 
+        # Preload back face if card is custom double-sided
+        bs = (c.get("back_set") or "").lower().strip()
+        bcn = str(c.get("back_cn") or "").lstrip("#").strip()
+        bname = (c.get("back_name") or "").strip()
+        if bs and bcn:
+            bkey = (bs, bcn)
+            if bkey not in seen:
+                seen.add(bkey)
+                identifiers.append({"set": bs, "collector_number": bcn})
+        elif bname:
+            b_split = bname.split(" // ")[0].split(" / ")[0].strip()
+            bkey = ("name", b_split.lower())
+            if bkey not in seen:
+                seen.add(bkey)
+                identifiers.append({"name": b_split})
+
     if not identifiers:
         return
 
@@ -217,6 +233,76 @@ def is_digital_card(card_data: dict) -> bool:
         return True
     return False
 
+def is_exact_or_front_face_match(candidate_card: dict, target_name: str) -> bool:
+    """
+    Checks if a candidate card object has an identical name to target_name.
+    Discards cards where the target card is merely a secondary face / prepared spell
+    (e.g. discarding 'Grave Researcher // Reanimate' when searching for 'Reanimate').
+    """
+    if not candidate_card or not target_name:
+        return False
+
+    def _norm(s: str) -> str:
+        s = s.strip().lower()
+        s = s.replace("’", "'").replace("‘", "'").replace("—", "-").replace("–", "-")
+        return s
+
+    target_norm = _norm(target_name)
+    target_primary = _norm(target_name.split(" // ")[0].split(" / ")[0])
+
+    card_name = _norm(candidate_card.get("name") or "")
+
+    # 1. Exact full name match (e.g. 'Reanimate' == 'Reanimate' or 'Fire // Ice' == 'Fire // Ice')
+    if card_name == target_norm or card_name == target_primary:
+        return True
+
+    # 2. Front face exact match for multi-faced cards
+    faces = candidate_card.get("card_faces") or []
+    if faces and len(faces) > 0:
+        front_face_name = _norm(faces[0].get("name") or "")
+        if front_face_name == target_norm or front_face_name == target_primary:
+            return True
+
+    # 3. Split card full name starts with primary target face (e.g. 'Fire // Ice' when input was 'Fire')
+    if card_name.startswith(f"{target_primary} //") or card_name.startswith(f"{target_primary} /"):
+        return True
+
+    return False
+
+
+def _pick_best_name_match(candidates: List[dict], target_name: str) -> Optional[dict]:
+    """
+    Selects the candidate that genuinely matches target_name.
+    Discards any candidate where the card name or primary front face does not match
+    (e.g. discarding 'Grave Researcher // Reanimate' when searching for 'Reanimate').
+    """
+    if not candidates or not target_name:
+        return None
+
+    # Discard any candidate whose name does not match target_name
+    valid = [c for c in candidates if is_exact_or_front_face_match(c, target_name)]
+    if not valid:
+        return None
+
+    clean = target_name.strip().lower().replace("’", "'").replace("‘", "'").replace("—", "-").replace("–", "-")
+    clean_split = clean.split(" // ")[0].split(" / ")[0].strip()
+
+    # Priority 1: Full card name exact match (e.g. 'Reanimate' == 'Reanimate')
+    for c in valid:
+        c_name = (c.get("name") or "").strip().lower()
+        if c_name == clean or c_name == clean_split:
+            return c
+
+    # Priority 2: Front face exact match (e.g. 'Brazen Borrower' on 'Brazen Borrower // Petty Theft')
+    for c in valid:
+        faces = c.get("card_faces") or []
+        if faces and len(faces) > 0:
+            f0_name = (faces[0].get("name") or "").strip().lower()
+            if f0_name == clean or f0_name == clean_split:
+                return c
+
+    return valid[0]
+
 def find_clean_paper_fallback(
     card_name: str,
     prefer_nonfoil: bool = True,
@@ -249,13 +335,17 @@ def find_clean_paper_fallback(
             params_set = urllib.parse.urlencode({"q": " ".join(same_set_query), "order": "released", "dir": "desc"})
             data_set = _scryfall_get(f"https://api.scryfall.com/cards/search?{params_set}")
             if data_set and "data" in data_set and len(data_set["data"]) > 0:
-                return data_set["data"][0]
+                match = _pick_best_name_match(data_set["data"], clean_name)
+                if match:
+                    return match
         
     params = urllib.parse.urlencode({"q": " ".join(query_parts), "order": "released", "dir": "desc"})
     url = f"https://api.scryfall.com/cards/search?{params}"
     data = _scryfall_get(url)
     if data and "data" in data and len(data["data"]) > 0:
-        return data["data"][0]
+        match = _pick_best_name_match(data["data"], clean_name)
+        if match:
+            return match
         
     # 2. Relaxed search: keep avoid_stamped and avoid_datestamped, relax nonfoil
     if prefer_nonfoil:
@@ -267,19 +357,25 @@ def find_clean_paper_fallback(
         params_rel = urllib.parse.urlencode({"q": " ".join(relaxed_parts), "order": "released", "dir": "desc"})
         data_rel = _scryfall_get(f"https://api.scryfall.com/cards/search?{params_rel}")
         if data_rel and "data" in data_rel and len(data_rel["data"]) > 0:
-            return data_rel["data"][0]
+            match = _pick_best_name_match(data_rel["data"], clean_name)
+            if match:
+                return match
 
     # 3. Paper non-digital fallback
     params_pnd = urllib.parse.urlencode({"q": f'!\"{clean_name}\" game:paper not:digital', "order": "released", "dir": "desc"})
     data_pnd = _scryfall_get(f"https://api.scryfall.com/cards/search?{params_pnd}")
     if data_pnd and "data" in data_pnd and len(data_pnd["data"]) > 0:
-        return data_pnd["data"][0]
+        match = _pick_best_name_match(data_pnd["data"], clean_name)
+        if match:
+            return match
 
     # 4. Any paper fallback
     params_paper = urllib.parse.urlencode({"q": f'!\"{clean_name}\" game:paper', "order": "released", "dir": "desc"})
     data_paper = _scryfall_get(f"https://api.scryfall.com/cards/search?{params_paper}")
     if data_paper and "data" in data_paper and len(data_paper["data"]) > 0:
-        return data_paper["data"][0]
+        match = _pick_best_name_match(data_paper["data"], clean_name)
+        if match:
+            return match
         
     return None
 
@@ -351,6 +447,10 @@ def get_card_versions(card_name: str) -> List[dict]:
     versions = []
     seen = set()
     for c in raw_list:
+        # Verify card genuinely matches target card name (exclude cards where target is only a secondary/prepared face)
+        if c.get("name") and not is_exact_or_front_face_match(c, clean_name):
+            continue
+
         c_set = (c.get("set") or "").lower()
         c_cn = str(c.get("collector_number") or "").strip()
         key = (c_set, c_cn)

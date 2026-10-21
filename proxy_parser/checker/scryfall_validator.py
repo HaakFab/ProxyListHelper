@@ -30,6 +30,43 @@ def _canonical_name(name: str) -> str:
     return name.replace(" / ", " // ").strip()
 
 
+def is_exact_or_front_face_match(candidate_card: dict, target_name: str) -> bool:
+    """
+    Checks if a candidate card object has an identical name to target_name.
+    Discards cards where the target card is merely a secondary face / prepared spell
+    (e.g. discarding 'Grave Researcher // Reanimate' when searching for 'Reanimate').
+    """
+    if not candidate_card or not target_name:
+        return False
+
+    def _norm(s: str) -> str:
+        s = s.strip().lower()
+        s = s.replace("’", "'").replace("‘", "'").replace("—", "-").replace("–", "-")
+        return s
+
+    target_norm = _norm(target_name)
+    target_primary = _norm(target_name.split(" // ")[0].split(" / ")[0])
+
+    card_name = _norm(candidate_card.get("name") or "")
+
+    # 1. Exact full name match (e.g. 'Reanimate' == 'Reanimate' or 'Fire // Ice' == 'Fire // Ice')
+    if card_name == target_norm or card_name == target_primary:
+        return True
+
+    # 2. Front face exact match for multi-faced cards
+    faces = candidate_card.get("card_faces") or []
+    if faces and len(faces) > 0:
+        front_face_name = _norm(faces[0].get("name") or "")
+        if front_face_name == target_norm or front_face_name == target_primary:
+            return True
+
+    # 3. Split card full name starts with primary target face (e.g. 'Fire // Ice' when input was 'Fire')
+    if card_name.startswith(f"{target_primary} //") or card_name.startswith(f"{target_primary} /"):
+        return True
+
+    return False
+
+
 class ScryfallUnavailable(RuntimeError):
     """Scryfall could not be reached, so validation is incomplete.
 
@@ -284,7 +321,7 @@ class ScryfallBatchValidator:
         clean_name = card_name.split(" // ")[0].strip()
         cache_key = f"{clean_name}__set_{preferred_set.lower()}" if preferred_set else clean_name
         cached = self.cache.get(NONFOIL, cache_key)
-        if cached is not None:
+        if cached is not None and is_exact_or_front_face_match(cached, clean_name):
             return cached
 
         # 0. Try same set first if preferred_set provided
@@ -296,9 +333,10 @@ class ScryfallBatchValidator:
                 if r_set.status_code == 200:
                     data_set = r_set.json()
                     if "data" in data_set and len(data_set["data"]) > 0:
-                        cand = data_set["data"][0]
-                        self.cache.put(NONFOIL, cache_key, cand)
-                        return cand
+                        for cand in data_set["data"]:
+                            if is_exact_or_front_face_match(cand, clean_name):
+                                self.cache.put(NONFOIL, cache_key, cand)
+                                return cand
             except Exception:
                 pass
 
@@ -309,9 +347,10 @@ class ScryfallBatchValidator:
             if r.status_code == 200:
                 data = r.json()
                 if "data" in data and len(data["data"]) > 0:
-                    cand = data["data"][0]
-                    self.cache.put(NONFOIL, cache_key, cand)
-                    return cand
+                    for cand in data["data"]:
+                        if is_exact_or_front_face_match(cand, clean_name):
+                            self.cache.put(NONFOIL, cache_key, cand)
+                            return cand
         except Exception:
             pass
 
@@ -321,7 +360,7 @@ class ScryfallBatchValidator:
         """Looks up whether a physical paper printing exists for this card name."""
         clean_name = card_name.split(" // ")[0].strip()
         cached = self.cache.get(PAPER, clean_name)
-        if cached is not None:
+        if cached is not None and is_exact_or_front_face_match(cached, clean_name):
             return cached
 
         try:
@@ -330,7 +369,7 @@ class ScryfallBatchValidator:
             resp = requests.get(url, headers=API_HEADERS, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
-                if not data.get("digital") or "paper" in data.get("games", []):
+                if is_exact_or_front_face_match(data, clean_name) and (not data.get("digital") or "paper" in data.get("games", [])):
                     self.cache.put(PAPER, clean_name, data)
                     return data
         except Exception:

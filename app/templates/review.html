@@ -64,7 +64,7 @@
               <span id="substitute-label-{{ p.deck.id }}-{{ item.diag_idx }}">[{{ t("action_substitute") }} &rarr; {{ item.suggested_set.upper() }} #{{ item.suggested_cn }}]</span>
             </label>
             <button type="button" class="btn btn-switch-version"
-                    onclick="openVersionPicker({{ p.deck.id }}, {{ item.diag_idx }}, '{{ item.name|escape }}', '{{ item.suggested_set or '' }}', '{{ item.suggested_cn or '' }}')"
+                    onclick="openVersionPicker({{ p.deck.id }}, {{ item.diag_idx }}, '{{ item.name|escape }}', '{{ item.suggested_set or '' }}', '{{ item.suggested_cn or '' }}', '{{ item.original_set or item.set or '' }}', '{{ item.original_cn or item.cn or '' }}')"
                     title="{{ t('switch_version_tooltip') }}">
               <span class="switch-btn-desktop">⇄ {{ t('switch_card_version') }}</span>
               <span class="switch-btn-mobile" id="switch-btn-mobile-{{ p.deck.id }}-{{ item.diag_idx }}">⇄ {{ (item.suggested_set or '')|upper }} #{{ item.suggested_cn or '' }}</span>
@@ -113,7 +113,7 @@
                   <span class="version-chip version-chip-v2" id="v2-chip-{{ p.deck.id }}-{{ item.diag_idx }}">{{ item.fixed_version_label or 'V2: Replaced' }}</span>
                   
                   <button type="button" class="btn btn-switch-version"
-                          onclick="openVersionPicker({{ p.deck.id }}, {{ item.diag_idx }}, '{{ item.name|escape }}', '{{ item.set or item.suggested_set or '' }}', '{{ item.cn or item.suggested_cn or '' }}')"
+                          onclick="openVersionPicker({{ p.deck.id }}, {{ item.diag_idx }}, '{{ item.name|escape }}', '{{ item.suggested_set or item.set or '' }}', '{{ item.suggested_cn or item.cn or '' }}', '{{ item.original_set or item.set or '' }}', '{{ item.original_cn or item.cn or '' }}')"
                           title="{{ t('switch_version_tooltip') }}">
                     <span class="switch-btn-desktop">⇄ {{ t('switch_card_version') }}</span>
                     <span class="switch-btn-mobile" id="switch-btn-mobile-{{ p.deck.id }}-{{ item.diag_idx }}">⇄ {{ (item.suggested_set or item.set or 'V2')|upper }} #{{ item.suggested_cn or item.cn }}</span>
@@ -144,7 +144,14 @@
                    data-v1-img="{{ item.original_image_url or '' }}"
                    data-v1-label="{{ item.name }} ({{ item.set.upper() if item.set else '' }} #{{ item.cn or '' }})"
                    data-reason="{{ item.name }} &bull; {{ item.set.upper() if item.set else '' }} #{{ item.cn or '' }} &bull; Verified on Scryfall">
-                <span><strong>{{ item.qty }}x</strong> {{ item.name }}</span>
+                <span>
+                  <strong>{{ item.qty }}x</strong> {{ item.name }}
+                  {% if item.back_name %}
+                    <span class="badge" style="background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; font-size: 0.68rem; margin-left: 6px; padding: 2px 6px;">
+                      ⇄ {{ item.back_name }}{% if item.back_set %} ({{ item.back_set|upper }} #{{ item.back_cn }}){% endif %}
+                    </span>
+                  {% endif %}
+                </span>
                 <span style="font-family: var(--font-mono); font-size: 0.76rem; color: #666;">
                   {{ item.set.upper() if item.set else '' }} #{{ item.cn or '' }}
                 </span>
