@@ -1112,22 +1112,49 @@ def test_double_sided_tokens_single_token():
     assert token_item.back_cn == "1"
 
 
-def test_double_sided_tokens_multiple_qty():
+def test_double_sided_tokens_deduplicates_by_type():
     from app.converter import process_deck_cards
+    # Multiple tokens of the same type (Token A) and one of Token B
     cards = [
         {"qty": 2, "name": "Token A", "set": "tpip", "cn": "1", "board": "tokens"},
+        {"qty": 1, "name": "Token A Token", "set": "tpip", "cn": "9", "board": "tokens"},
         {"qty": 1, "name": "Token B", "set": "tpip", "cn": "2", "board": "tokens"},
     ]
     audit_items, status, converted = process_deck_cards(cards, double_sided_tokens=True)
     
-    token_items = [a for a in audit_items if a.name in ("Token A", "Token B")]
-    assert len(token_items) == 3
-    assert f"{token_items[0].name} >> {token_items[0].back_name}" == "Token A >> Token A"
-    assert f"{token_items[1].name} >> {token_items[1].back_name}" == "Token A >> Token B"
-    assert f"{token_items[2].name} >> {token_items[2].back_name}" == "Token B >> Token A"
-    assert "1 Token A (TPIP) 1 &&& Token A (TPIP) 1" in converted
+    token_items = [a for a in audit_items if "Token" in a.name]
+    assert len(token_items) == 2
+    assert token_items[0].name == "Token A" and token_items[0].back_name == "Token B"
+    assert token_items[1].name == "Token B" and token_items[1].back_name == "Token A"
     assert "1 Token A (TPIP) 1 &&& Token B (TPIP) 2" in converted
     assert "1 Token B (TPIP) 2 &&& Token A (TPIP) 1" in converted
+
+
+def test_extract_deck_cards_deduplicates_tokens_by_type():
+    from app.moxfield import extract_deck_cards
+    deck_data = {
+        "name": "Treasure Fest",
+        "boards": {
+            "mainboard": {
+                "cards": {
+                    "c1": {"quantity": 1, "card": {"name": "Ragavan", "set": "mh2", "cn": "138"}}
+                }
+            }
+        },
+        "tokens": [
+            {"isToken": True, "name": "Treasure", "set": "tcmr", "cn": "12"},
+            {"isToken": True, "name": "Treasure", "set": "tmh2", "cn": "21"},
+            {"isToken": True, "name": "Treasure Token", "set": "tafr", "cn": "15"},
+            {"isToken": True, "name": "Copy", "set": "tcmr", "cn": "23"},
+            {"isToken": True, "name": "Copy", "set": "tmh3", "cn": "37"},
+        ]
+    }
+    title, cards = extract_deck_cards(deck_data, include_tokens=True)
+    tokens = [c for c in cards if c.get("board") == "tokens"]
+    assert len(tokens) == 2
+    assert tokens[0]["name"] == "Treasure" and tokens[0]["qty"] == 1
+    assert tokens[1]["name"] == "Copy" and tokens[1]["qty"] == 1
+
 
 
 def test_parse_pasted_text_token_board():

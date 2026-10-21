@@ -93,18 +93,28 @@ def extract_deck_cards(
                 "board": board_name,
             })
             
-    # Include Tokens if selected
+    # Include Tokens if selected (only 1 Token of each type)
     if include_tokens:
-        seen_tokens = set()
-        # 1. From boards.tokens
+        seen_token_types = set()
+
+        def _token_type_key(t_name: str) -> str:
+            k = (t_name or "").strip().lower()
+            if k.endswith(" token") and len(k) > 6:
+                k = k[:-6].strip()
+            return k
+
+        # 1. From boards.tokens (user-explicit tokens take precedence)
         board_tokens = boards.get("tokens", {}).get("cards", {})
         for item in board_tokens.values():
             card_info = item.get("card", {})
-            key = (card_info.get("name"), card_info.get("set", "").lower(), str(card_info.get("cn", "")))
-            seen_tokens.add(key)
+            t_name = card_info.get("name", "")
+            key = _token_type_key(t_name)
+            if not key or key in seen_token_types:
+                continue
+            seen_token_types.add(key)
             extracted_cards.append({
-                "qty": int(item.get("quantity", 1)),
-                "name": card_info.get("name", ""),
+                "qty": 1,
+                "name": t_name,
                 "set": card_info.get("set", "").lower(),
                 "cn": str(card_info.get("cn", "")).strip(),
                 "is_foil": False,
@@ -132,18 +142,20 @@ def extract_deck_cards(
             if not is_real_token:
                 continue
 
-            key = (tok.get("name"), set_code, str(tok.get("cn", "")))
-            if key not in seen_tokens:
-                seen_tokens.add(key)
-                extracted_cards.append({
-                    "qty": 1,
-                    "name": tok.get("name", ""),
-                    "set": set_code,
-                    "cn": str(tok.get("cn", "")).strip(),
-                    "is_foil": False,
-                    "promo_types": tok.get("promo_types", []) or [],
-                    "board": "tokens",
-                })
+            t_name = tok.get("name", "")
+            key = _token_type_key(t_name)
+            if not key or key in seen_token_types:
+                continue
+            seen_token_types.add(key)
+            extracted_cards.append({
+                "qty": 1,
+                "name": t_name,
+                "set": set_code,
+                "cn": str(tok.get("cn", "")).strip(),
+                "is_foil": False,
+                "promo_types": tok.get("promo_types", []) or [],
+                "board": "tokens",
+            })
 
     # Include Stickers if selected
     if include_stickers:

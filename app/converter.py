@@ -135,22 +135,26 @@ def process_deck_cards(
         f"// Language: {preferred_language}",
     ]
 
-    # Handle Double-Sided Tokens if requested: pair tokens cyclically front-to-back
+    # Handle Double-Sided Tokens if requested: pair tokens cyclically front-to-back (1 of each type)
     if double_sided_tokens:
         non_tokens = [c for c in raw_cards if not is_token_card(c)]
         token_cards = [c for c in raw_cards if is_token_card(c)]
         if token_cards:
-            expanded_tokens = []
+            seen_types = set()
+            unique_tokens = []
             for tok in token_cards:
-                q = max(1, int(tok.get("qty", 1)))
-                for _ in range(q):
-                    expanded_tokens.append(dict(tok, qty=1))
+                t_name = (tok.get("name") or "").strip().lower()
+                if t_name.endswith(" token") and len(t_name) > 6:
+                    t_name = t_name[:-6].strip()
+                if t_name not in seen_types:
+                    seen_types.add(t_name)
+                    unique_tokens.append(dict(tok, qty=1))
 
-            n_tokens = len(expanded_tokens)
+            n_tokens = len(unique_tokens)
             paired_tokens = []
             for i in range(n_tokens):
-                curr = dict(expanded_tokens[i])
-                next_tok = expanded_tokens[(i + 1) % n_tokens]
+                curr = dict(unique_tokens[i])
+                next_tok = unique_tokens[(i + 1) % n_tokens]
                 curr["qty"] = 1
                 curr["back_name"] = next_tok.get("name")
                 curr["back_set"] = (next_tok.get("set") or "").lower() if next_tok.get("set") else None
